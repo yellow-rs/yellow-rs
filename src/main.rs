@@ -48,13 +48,13 @@ struct General;
 
 fn main() {
     /* Load env variables located at `./.env` relative to CWD*/
-    kankyo::load().expect("Failed to load .env file");
+    // kankyo::load().expect("Failed to load .env file");
 
     /* Initialize logger based `RUST_LOG` from .env*/
     env_logger::init();
 
-    let token = env::var("DISCORD_TOKEN")
-        .expect("Expected a token in the environment");
+    let token = env::var("DISCORD_TOKEN").unwrap();
+        //.expect("Expected a token in the environment");
 
     let mut client = Client::new(&token, Handler)
         .expect("Error creating client");
