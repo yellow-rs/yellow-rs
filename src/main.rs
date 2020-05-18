@@ -4,30 +4,22 @@ mod core;
 use std::{collections::HashSet, env, sync::Arc};
 
 use serenity::{
-    client::bridge::gateway::ShardManager,
     framework::{standard::macros::group, StandardFramework},
     prelude::*,
 };
 
 use log::error;
 
-use commands::{misc::*, play::*, tech::*, utils::*};
+use crate::commands::{misc::*, play::*, tech::*, utils::*};
 
-struct ShardManagerContainer;
-
-impl TypeMapKey for ShardManagerContainer {
-    type Value = Arc<Mutex<ShardManager>>;
-}
-
-#[derive(Debug)]
-struct ConnectFourContainer;
-
-impl TypeMapKey for ConnectFourContainer {
-    type Value = Arc<Mutex<i32>>;
-}
+use crate::core::{
+    game::connect_four::container::{ConnectFourContainer, ConnectFourManager},
+    handler::ClientHandler,
+    shardmanager_container::ShardManagerContainer,
+};
 
 #[group]
-#[commands(ping, avatar)]
+#[commands(ping, avatar, verified)]
 struct Misc;
 
 #[group]
@@ -39,7 +31,7 @@ struct Tech;
 struct Util;
 
 #[group]
-#[commands(c4)]
+#[commands(c4, games)]
 struct Play;
 
 fn main() {
@@ -50,17 +42,14 @@ fn main() {
     /* Initialize logger based `RUST_LOG` from environment*/
     env_logger::init();
 
-    //let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
+    let mut client = Client::new(env::var("DISCORD_TOKEN").unwrap(), ClientHandler)
+        .expect("Error creating client");
 
-    let mut client = Client::new(
-        env::var("DISCORD_TOKEN").unwrap(),
-        core::handler::ClientHandler,
-    )
-    .expect("Error creating client");
-
+    //let c4 = ConnectFourManager::new();
     {
         let mut data = client.data.write();
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
+        data.insert::<ConnectFourContainer>(Arc::new(RwLock::new(ConnectFourManager::new())));
     }
 
     let owners = match client.cache_and_http.http.get_current_application_info() {

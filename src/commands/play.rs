@@ -1,3 +1,5 @@
+use crate::core::game::connect_four::container::ConnectFourContainer;
+
 use serenity::framework::standard::{macros::command, CommandResult};
 use serenity::model::prelude::*;
 use serenity::prelude::*;
@@ -25,6 +27,17 @@ fn c4(ctx: &mut Context, msg: &Message) -> CommandResult {
         })
     })
     .unwrap();
+
+    Ok(())
+}
+
+#[command]
+fn games(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let data = ctx.data.read();
+
+    let c4 = data.get::<ConnectFourContainer>().unwrap().read();
+
+    let _ = msg.reply(&ctx, format!("You have {} games ongoing!", c4.games.len()));
 
     Ok(())
 }

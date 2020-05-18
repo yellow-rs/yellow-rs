@@ -1,6 +1,8 @@
 use log::info;
-use serenity::model::{event::ResumedEvent, gateway::Ready};
-use serenity::prelude::*;
+use serenity::{
+    model::{event::ResumedEvent, gateway::Ready},
+    prelude::*,
+};
 
 pub struct ClientHandler;
 
