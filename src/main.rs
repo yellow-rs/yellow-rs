@@ -4,7 +4,9 @@ mod core;
 use std::{collections::HashSet, env, sync::Arc};
 
 use serenity::{
+    async_trait,
     framework::{standard::macros::group, StandardFramework},
+    http::Http,
     prelude::*,
 };
 
@@ -19,11 +21,11 @@ use crate::core::{
 };
 
 #[group]
-#[commands(ping, avatar, verified)]
+#[commands(avatar)]
 struct Misc;
 
 #[group]
-#[commands(shards, quit)]
+#[commands(quit, shards)]
 struct Tech;
 
 #[group]
@@ -31,10 +33,11 @@ struct Tech;
 struct Util;
 
 #[group]
-#[commands(c4, games)]
+#[commands(connect_four, games)]
 struct Play;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     /* Load env variables located at `./.env` relative to CWD*/
     /* Comment this line when deployed in Heroku */
     kankyo::load().expect("Failed to load .env file");
@@ -42,36 +45,40 @@ fn main() {
     /* Initialize logger based `RUST_LOG` from environment*/
     env_logger::init();
 
-    let mut client = Client::new(env::var("DISCORD_TOKEN").unwrap(), ClientHandler)
-        .expect("Error creating client");
+    let token = env::var("DISCORD_TOKEN").unwrap();
 
-    //let c4 = ConnectFourManager::new();
+    let http = Http::new_with_token(&token);
+
+    let (owners, id) = match http.get_current_application_info().await {
+        Ok(info) => {
+            let mut owners = HashSet::new();
+            owners.insert(info.owner.id);
+
+            (owners, info.id)
+        }
+        Err(why) => panic!("Could not access app info: {:?}", why),
+    };
+
+    let mut client = Client::new(&token)
+        .framework(
+            StandardFramework::new()
+                .configure(|c| c.owners(owners).prefix("~"))
+                .group(&MISC_GROUP)
+                .group(&TECH_GROUP)
+                .group(&UTIL_GROUP)
+                .group(&PLAY_GROUP),
+        )
+        .event_handler(ClientHandler)
+        .await
+        .expect("");
+
     {
-        let mut data = client.data.write();
+        let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
         data.insert::<ConnectFourContainer>(Arc::new(RwLock::new(ConnectFourManager::new())));
     }
 
-    let owners = match client.cache_and_http.http.get_current_application_info() {
-        Ok(info) => {
-            let mut set = HashSet::new();
-            set.insert(info.owner.id);
-
-            Some(set)
-        }
-        Err(_why) => None,
-    };
-
-    client.with_framework(
-        StandardFramework::new()
-            .configure(|c| c.owners(owners.unwrap()).prefix("~"))
-            .group(&MISC_GROUP)
-            .group(&TECH_GROUP)
-            .group(&UTIL_GROUP)
-            .group(&PLAY_GROUP),
-    );
-
-    if let Err(why) = client.start_autosharded() {
+    if let Err(why) = client.start_autosharded().await {
         error!("Client error: {:?}", why);
     }
 }

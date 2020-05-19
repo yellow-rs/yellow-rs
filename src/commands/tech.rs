@@ -1,36 +1,40 @@
 use crate::core::shardmanager_container::ShardManagerContainer;
 
-use serenity::framework::standard::{macros::command, CommandResult};
-use serenity::model::prelude::*;
-use serenity::prelude::*;
+use serenity::{
+    framework::standard::{macros::command, CommandResult},
+    model::prelude::*,
+    prelude::*,
+};
 
 #[command]
 #[owners_only]
-fn shards(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.channel_id.broadcast_typing(&ctx.http).ok();
-    let _ = msg.channel_id.send_message(&ctx.http, |m| {
-        m.embed(|e| {
-            e.title("Application Status Report")
-                .thumbnail(&ctx.cache.read().user.face())
-                .colour((255, 255, 0))
-                .field("Shard(s) in use", &ctx.cache.read().shard_count, false)
-                .footer(|f| f.text("Powered by Allure™️  | ©️ 2020"))
-        })
-    });
+async fn quit(ctx: &Context, msg: &Message) -> CommandResult {
+    if let Some(manager) = ctx.data.read().await.get::<ShardManagerContainer>() {
+        let _ = msg.reply(ctx, "Shutting down!").await;
+        manager.lock().await.shutdown_all().await;
+    } else {
+        let _ = msg
+            .reply(ctx, "There was a problem getting the shard manager.")
+            .await;
+    }
 
     Ok(())
 }
 
 #[command]
-#[owners_only]
-fn quit(ctx: &mut Context, msg: &Message) -> CommandResult {
-    msg.channel_id.broadcast_typing(&ctx.http).ok();
-    if let Some(manager) = ctx.data.read().get::<ShardManagerContainer>() {
-        let _ = msg.reply(&ctx, "Shutting down!");
-        manager.lock().shutdown_all();
-    } else {
-        let _ = msg.reply(&ctx, "There was a problem getting the shard manager.");
-    }
+#[description = "Reports number of shards in use."]
+#[aliases("shard")]
+async fn shards(ctx: &Context, msg: &Message) -> CommandResult {
+    let _ = msg
+        .channel_id
+        .say(
+            &ctx.http,
+            format!(
+                "There are currently {} shard(s) in use",
+                ctx.cache.shard_count().await
+            ),
+        )
+        .await;
 
     Ok(())
 }

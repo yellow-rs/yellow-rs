@@ -5,8 +5,7 @@ use serenity::prelude::Context;
 #[command]
 #[aliases("+")]
 #[min_args(2)]
-fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    msg.channel_id.broadcast_typing(&ctx.http).ok();
+async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let mut sum: f64 = 0.0;
     let mut expression: String = String::from("```");
 
@@ -25,7 +24,7 @@ fn add(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     expression += &sum.to_string();
     expression += "```";
 
-    let _ = msg.channel_id.say(&ctx.http, expression);
+    let _ = msg.channel_id.say(&ctx.http, expression).await;
 
     Ok(())
 }

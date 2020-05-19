@@ -1,5 +1,5 @@
 #[derive(Clone, Copy, Debug)]
-enum CellState {
+pub enum CellState {
     Vacant,
     One,
     Two,
@@ -17,13 +17,13 @@ impl Board {
         Board([CellState::Vacant; 42], col, row)
     }
 
-    fn dump(&self) {
+    pub fn dump(&self) {
         for cells in self.0.iter() {
             println!("{:?}", cells);
         }
     }
 
-    fn coin(&mut self, col: usize, player: CellState) -> Move {
+    pub fn coin(&mut self, col: usize, player: CellState) -> Move {
         Move::Invalid
     }
 }
