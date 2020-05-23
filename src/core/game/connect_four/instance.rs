@@ -1,19 +1,18 @@
-use crate::core::game::connect_four::board::Board;
-//use crate::core::game::connect_four::board::CellState;
+use crate::core::game::connect_four::board::{Board, C4Board};
 use serenity::model::channel::Message;
 use serenity::model::user::User;
 
 pub struct Instance {
     board: Board,
-    players: Vec<User>,
+    pub players: [Option<User>; 2],
     pub msg: Message,
 }
 
 impl Instance {
     pub fn new(msg: Message) -> Instance {
         Instance {
-            board: Board::new(7, 6),
-            players: vec![],
+            board: Board::new(),
+            players: [None, None],
             msg: msg,
         }
     }

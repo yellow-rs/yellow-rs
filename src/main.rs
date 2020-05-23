@@ -1,10 +1,14 @@
 mod commands;
 mod core;
 
-use std::{collections::HashSet, env, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+    sync::Arc,
+};
 
 use serenity::{
-    async_trait,
+    cache::{Cache, Settings},
     framework::{standard::macros::group, StandardFramework},
     http::Http,
     prelude::*,
@@ -12,29 +16,30 @@ use serenity::{
 
 use log::error;
 
-use crate::commands::{misc::*, play::*, tech::*, utils::*};
+use crate::commands::{misc::*, /*play::*,*/ tech::*, utils::*};
 
 use crate::core::{
-    game::connect_four::container::{ConnectFourContainer, ConnectFourManager},
+    //game::connect_four::container::{ConnectFourContainer, ConnectFourManager},
     handler::ClientHandler,
+    messagecache_container::MessageCacheContainer,
     shardmanager_container::ShardManagerContainer,
 };
 
 #[group]
-#[commands(avatar)]
+#[commands(avatar, snipe)]
 struct Misc;
 
 #[group]
-#[commands(quit, shards)]
+#[commands(quit, shards, ping)]
 struct Tech;
 
 #[group]
-#[commands(add)]
+#[commands(eval)]
 struct Util;
 
-#[group]
-#[commands(connect_four, games)]
-struct Play;
+//#[group]
+//#[commands(connect_four, games)]
+//struct Play;
 
 #[tokio::main]
 async fn main() {
@@ -43,13 +48,13 @@ async fn main() {
     kankyo::load().expect("Failed to load .env file");
 
     /* Initialize logger based `RUST_LOG` from environment*/
-    env_logger::init();
+    pretty_env_logger::init_timed();
 
     let token = env::var("DISCORD_TOKEN").unwrap();
 
     let http = Http::new_with_token(&token);
 
-    let (owners, id) = match http.get_current_application_info().await {
+    let (owners, _) = match http.get_current_application_info().await {
         Ok(info) => {
             let mut owners = HashSet::new();
             owners.insert(info.owner.id);
@@ -59,14 +64,16 @@ async fn main() {
         Err(why) => panic!("Could not access app info: {:?}", why),
     };
 
+    let settings = Settings::new().max_messages(1).clone();
+    let _cache = Cache::new_with_settings(settings);
+
     let mut client = Client::new(&token)
         .framework(
             StandardFramework::new()
                 .configure(|c| c.owners(owners).prefix("~"))
                 .group(&MISC_GROUP)
                 .group(&TECH_GROUP)
-                .group(&UTIL_GROUP)
-                .group(&PLAY_GROUP),
+                .group(&UTIL_GROUP), /*.group(&PLAY_GROUP)*/
         )
         .event_handler(ClientHandler)
         .await
@@ -75,7 +82,8 @@ async fn main() {
     {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
-        data.insert::<ConnectFourContainer>(Arc::new(RwLock::new(ConnectFourManager::new())));
+        //        data.insert::<ConnectFourContainer>(Arc::new(RwLock::new(ConnectFourManager::new())));
+        data.insert::<MessageCacheContainer>(Arc::new(RwLock::new(HashMap::new())));
     }
 
     if let Err(why) = client.start_autosharded().await {
