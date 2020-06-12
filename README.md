@@ -1,5 +1,5 @@
 # Yellow
-<p align="center"><a href="https://vuejs.org" target="_blank" rel="noopener noreferrer"><img width="200" src="https://cdn.discordapp.com/attachments/611471116589989889/707753651925680208/index.jpeg" alt="Vue logo"></a></p>
+<p align="center"><a href="https://cdn.discordapp.com/attachments/611471116589989889/707753651925680208/index.jpeg" target="_blank" rel="noopener noreferrer"><img width="200" src="https://cdn.discordapp.com/attachments/611471116589989889/707753651925680208/index.jpeg" alt="Vue logo"></a></p>
 
 ![ ](https://github.com/Senre/Yellow-rs/workflows/Rust/badge.svg)
 
