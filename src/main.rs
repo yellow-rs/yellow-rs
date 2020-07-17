@@ -16,17 +16,16 @@ use serenity::{
 
 use log::error;
 
-use crate::commands::{misc::*, /*play::*,*/ tech::*, utils::*};
+use crate::commands::{misc::*, tech::*, utils::*};
 
 use crate::core::{
-    //game::connect_four::container::{ConnectFourContainer, ConnectFourManager},
     handler::ClientHandler,
     messagecache_container::MessageCacheContainer,
     shardmanager_container::ShardManagerContainer,
 };
 
 #[group]
-#[commands(avatar, snipe)]
+#[commands(avatar, sudo)]
 struct Misc;
 
 #[group]
@@ -36,10 +35,6 @@ struct Tech;
 #[group]
 #[commands(eval)]
 struct Util;
-
-//#[group]
-//#[commands(connect_four, games)]
-//struct Play;
 
 #[tokio::main]
 async fn main() {
@@ -73,7 +68,7 @@ async fn main() {
                 .configure(|c| c.owners(owners).prefix("~"))
                 .group(&MISC_GROUP)
                 .group(&TECH_GROUP)
-                .group(&UTIL_GROUP), /*.group(&PLAY_GROUP)*/
+                .group(&UTIL_GROUP),
         )
         .event_handler(ClientHandler)
         .await
@@ -82,7 +77,6 @@ async fn main() {
     {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
-        //        data.insert::<ConnectFourContainer>(Arc::new(RwLock::new(ConnectFourManager::new())));
         data.insert::<MessageCacheContainer>(Arc::new(RwLock::new(HashMap::new())));
     }
 
