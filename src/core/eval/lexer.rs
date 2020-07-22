@@ -103,6 +103,10 @@ impl<'a> Lexer<'a> {
                 '&' => ast::Operator::BAnd,
                 '|' => ast::Operator::BOr,
                 '~' => ast::Operator::BNot,
+                '!' => ast::Operator::LNot,
+
+                '>' => ast::Operator::GT,
+                '<' => ast::Operator::LT,
 
                 _ => panic!("Bad operator given!"),
             }),
@@ -180,6 +184,20 @@ impl<'a> Lexer<'a> {
                     _ => Self::e(current)?,
                 },
 
+                '>' => double_match! {
+                    tokens, self,
+                    '>',
+                    '=' => ast::Operator::GE,
+                    '>' => ast::Operator::BitShiftR
+                },
+
+                '<' => double_match! {
+                    tokens, self,
+                    '<',
+                    '=' => ast::Operator::LE,
+                    '<' => ast::Operator::BitShiftL
+                },
+
                 _ => Self::e(current)?,
             }
             current = self.bump_char();
@@ -217,44 +235,85 @@ fn integer_single() {
 
 #[test]
 fn integer_op() {
-    let tokens = Lexer::new("8// 10&&28&28|29||29 +1-1 == 10 != 10")
+    let tokens = Lexer::new("// && & | || + - == != / > < >> << >= <= ! ~ **")
         .tokenize()
         .expect("Failed to parse");
-    assert_eq!(tokens[0].value, "8");
+
     assert_eq!(
-        tokens[1].tok_type,
+        tokens[0].tok_type,
         ast::TokenType::Operator(ast::Operator::IntDiv)
     );
     assert_eq!(
-        tokens[3].tok_type,
+        tokens[1].tok_type,
         ast::TokenType::Operator(ast::Operator::LAnd)
     );
     assert_eq!(
-        tokens[5].tok_type,
+        tokens[2].tok_type,
         ast::TokenType::Operator(ast::Operator::BAnd)
     );
     assert_eq!(
-        tokens[7].tok_type,
+        tokens[3].tok_type,
         ast::TokenType::Operator(ast::Operator::BOr)
     );
     assert_eq!(
-        tokens[9].tok_type,
+        tokens[4].tok_type,
         ast::TokenType::Operator(ast::Operator::LOr)
     );
     assert_eq!(
-        tokens[11].tok_type,
+        tokens[5].tok_type,
         ast::TokenType::Operator(ast::Operator::Add)
     );
     assert_eq!(
-        tokens[13].tok_type,
+        tokens[6].tok_type,
         ast::TokenType::Operator(ast::Operator::Sub)
     );
     assert_eq!(
-        tokens[15].tok_type,
+        tokens[7].tok_type,
         ast::TokenType::Operator(ast::Operator::Eql)
     );
     assert_eq!(
-        tokens[17].tok_type,
+        tokens[8].tok_type,
         ast::TokenType::Operator(ast::Operator::NEql)
     );
+    assert_eq!(
+        tokens[9].tok_type,
+        ast::TokenType::Operator(ast::Operator::Div)
+    );
+    assert_eq!(
+        tokens[10].tok_type,
+        ast::TokenType::Operator(ast::Operator::GT)
+    );
+    assert_eq!(
+        tokens[11].tok_type,
+        ast::TokenType::Operator(ast::Operator::LT)
+    );
+    assert_eq!(
+        tokens[12].tok_type,
+        ast::TokenType::Operator(ast::Operator::BitShiftR)
+    );
+    assert_eq!(
+        tokens[13].tok_type,
+        ast::TokenType::Operator(ast::Operator::BitShiftL)
+    );
+    assert_eq!(
+        tokens[14].tok_type,
+        ast::TokenType::Operator(ast::Operator::GE)
+    );
+    assert_eq!(
+        tokens[15].tok_type,
+        ast::TokenType::Operator(ast::Operator::LE)
+    );
+    assert_eq!(
+        tokens[16].tok_type,
+        ast::TokenType::Operator(ast::Operator::LNot)
+    );
+    assert_eq!(
+        tokens[17].tok_type,
+        ast::TokenType::Operator(ast::Operator::BNot)
+    );
+    assert_eq!(
+        tokens[18].tok_type,
+        ast::TokenType::Operator(ast::Operator::Pow)
+    );
 }
+
