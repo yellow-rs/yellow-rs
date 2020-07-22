@@ -33,7 +33,8 @@ impl Error {
 pub(crate) enum ErrorType {
     SyntaxError,
     LexError,
-    TypeError
+    TypeError,
+    RuntimeError,
 }
 
 impl fmt::Display for ErrorType {
@@ -44,7 +45,8 @@ impl fmt::Display for ErrorType {
             match self {
                 ErrorType::SyntaxError => "SyntaxError",
                 ErrorType::LexError => "LexError",
-                ErrorType::TypeError => "TypeError"
+                ErrorType::TypeError => "TypeError",
+                ErrorType::RuntimeError => "RuntimeError"
             }
         )
     }

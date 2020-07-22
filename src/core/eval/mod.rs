@@ -2,6 +2,7 @@ pub(crate) mod ast;
 pub(crate) mod error;
 mod lexer;
 mod parser;
+mod exec;
 
 use error::Error;
 
@@ -9,7 +10,7 @@ use error::Error;
 pub(crate) fn exec<'a>(value: &'a str) -> Result<String, Error> {
     let tokens = lexer::Lexer::new(value).tokenize()?;
     let ast = parser::Parser::new(tokens).expr(0)?;
-    Ok(String::new())
+    exec::Executer::new().eval(ast)
 }
 
 #[test]
