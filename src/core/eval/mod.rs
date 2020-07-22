@@ -1,68 +1,4 @@
-#[derive(Debug, PartialEq)]
-enum Operator {
-    Add,
-    Sub,
-    Mul,
-    Div,
-
-    Pow,
-
-    Eql,  // Equal
-    NEql, // Not equal
-
-    BAnd, // Bitwise and
-    BOr,  // Bitwise or
-
-    LAnd, // Logical or
-    LOr,  // Logical and
-
-    BitShiftR, // Right bit shift
-    BitShiftL, // Right bit shift
-}
-
-#[derive(Debug, PartialEq)]
-enum Expression {
-    BinOp(BinOp),
-    InfixOp(InfixOp),
-}
-
-#[derive(Debug, PartialEq)]
-struct BinOp {
-    op: Operator,
-    left: Box<Expression>,
-    right: Box<Expression>,
-}
-
-#[derive(Debug, PartialEq)]
-struct InfixOp {
-    op: Operator,
-    value: Box<Expression>,
-}
-
-#[derive(Debug, PartialEq)]
-enum TokenType {
-    Integer,
-    Operator(Operator)
-}
-
-#[derive(Debug, PartialEq)]
-struct Token<'a> {
-    tok_type: TokenType,
-    value: &'a str,
-    pos_start: usize,
-    pos_end: usize
-}
-
-impl<'a> Token<'a> {
-    fn new(tok_type: TokenType, value: &'a str, pos_start: usize, pos_end: usize) -> Self {
-        Token {
-            tok_type,
-            value,
-            pos_start,
-            pos_end
-        }
-    }
-}
+mod ast;
 
 struct Lexer<'a> {
     chars_peek: std::iter::Peekable<std::str::Chars<'a>>,
@@ -92,9 +28,9 @@ impl<'a> Lexer<'a> {
         *self.chars_peek.peek().unwrap_or(&EOF_CHAR)
     }
 
-    fn integer(&mut self) -> Token<'a> {
+    fn integer(&mut self) -> ast::Token<'a> {
         let next_len = self.len_eat_while(|c| '0' <= c && c <= '9');
-        Token::new(TokenType::Integer, &self.file_contents[self.pos-next_len..self.pos], self.pos-next_len, self.pos)
+        ast::Token::new(ast::TokenType::Integer, &self.file_contents[self.pos-next_len..self.pos], self.pos-next_len, self.pos)
     }
 
     fn len_eat_while<F>(&mut self, mut predicate: F) -> usize
@@ -112,14 +48,15 @@ impl<'a> Lexer<'a> {
         eaten
     }
 
-    fn tokenize(&mut self) -> Result<Vec<Token<'a>>, String> {
-        let mut tokens: Vec<Token<'a>> = Vec::new();
+    fn tokenize(&mut self) -> Result<Vec<ast::Token<'a>>, String> {
+        let mut tokens: Vec<ast::Token<'a>> = Vec::new();
         let mut current = self.bump_char();
         while current != EOF_CHAR {
             match current {
                 '0'..='9' => {
                     tokens.push(self.integer())
                 }
+
                 _ => {
                     return Err(format!("Unrecognized character {}", current))
                 }
