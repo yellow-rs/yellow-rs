@@ -65,7 +65,8 @@ async fn main() {
     let mut client = Client::new(&token)
         .framework(
             StandardFramework::new()
-                .configure(|c| c.owners(owners).prefix("~"))
+                .configure(|c| c.owners(owners).prefix("/"))
+                .help(&HELP)
                 .group(&MISC_GROUP)
                 .group(&TECH_GROUP)
                 .group(&UTIL_GROUP),
