@@ -1,8 +1,9 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Hash, Eq)]
 pub(crate) enum Operator {
     Add,
     Sub,
     Mul,
+    Mod,
 
     Div,
     IntDiv,
@@ -20,6 +21,7 @@ pub(crate) enum Operator {
     BAnd, // Bitwise and
     BOr,  // Bitwise or
     BNot, // Bitwise not
+    BXor, // Bitwise XOR
 
     LAnd, // Logical or
     LOr,  // Logical and
@@ -27,29 +29,33 @@ pub(crate) enum Operator {
 
     BitShiftR, // Right bit shift
     BitShiftL, // Left bit shift
+
+    As, // Casting
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Expression {
-    BinOp(BinOp),
-    InfixOp(InfixOp),
+pub(crate) enum Expression<'a> {
+    BinOp(BinOp<'a>),
+    InfixOp(InfixOp<'a>),
+    Integer(&'a str),
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct BinOp {
+pub(crate) struct BinOp<'a> {
     op: Operator,
-    left: Box<Expression>,
-    right: Box<Expression>,
+    left: Box<Expression<'a>>,
+    right: Box<Expression<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct InfixOp {
+pub(crate) struct InfixOp<'a> {
     op: Operator,
-    value: Box<Expression>,
+    value: Box<Expression<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum TokenType {
+    Identifier,
     Integer,
     Operator(Operator),
 }

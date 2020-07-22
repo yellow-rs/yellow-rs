@@ -33,6 +33,16 @@ pub fn is_whitespace(c: char) -> bool {
     }
 }
 
+/// Check if ID is continue
+fn is_id_continue(c: char) -> bool {
+    ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_'
+}
+
+/// Get start of ID (excluding number)
+fn is_id_start(c: char) -> bool {
+    ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_'
+}
+
 macro_rules! double_match {
     ($tokens: ident, $self: ident, $first: expr, $($second: expr => $op_type: expr),*) => {
         match $self.peek_char() {
@@ -76,6 +86,20 @@ impl<'a> Lexer<'a> {
         )
     }
 
+    fn identifier(&mut self) -> ast::Token<'a> {
+        let next_len = self.len_eat_while(|c| is_id_continue(c)) + 1;
+        let ident = &self.file_contents[self.pos - next_len..self.pos];
+        ast::Token::new(
+            match ident {
+                "as" => ast::TokenType::Operator(ast::Operator::As),
+                _ => ast::TokenType::Identifier
+            },
+            ident,
+            self.pos - next_len,
+            self.pos,
+        )
+    }
+
     fn len_eat_while<F>(&mut self, mut predicate: F) -> usize
     where
         F: FnMut(char) -> bool,
@@ -99,6 +123,7 @@ impl<'a> Lexer<'a> {
                 '-' => ast::Operator::Sub,
                 '/' => ast::Operator::Div,
                 '*' => ast::Operator::Mul,
+                '%' => ast::Operator::Mod,
 
                 '&' => ast::Operator::BAnd,
                 '|' => ast::Operator::BOr,
@@ -107,6 +132,8 @@ impl<'a> Lexer<'a> {
 
                 '>' => ast::Operator::GT,
                 '<' => ast::Operator::LT,
+
+                '^' => ast::Operator::BXor,
 
                 _ => panic!("Bad operator given!"),
             }),
@@ -143,7 +170,12 @@ impl<'a> Lexer<'a> {
                     // Just do nothing here
                 }
 
-                '+' | '-' | '~' => {
+                c if is_id_start(c) => {
+                    // Start of id
+                    tokens.push(self.identifier());
+                }
+
+                '+' | '-' | '~' | '^' | '%' => {
                     tokens.push(self.new_literal(current));
                 }
 
@@ -234,8 +266,36 @@ fn integer_single() {
 }
 
 #[test]
+fn indent() {
+    let tokens = Lexer::new("pi * 8 as float ** 2").tokenize().expect("Failed to parse");
+    assert_eq!(tokens[0].value, "pi");
+    assert_eq!(tokens[0].tok_type, ast::TokenType::Identifier);
+    assert_eq!(
+        tokens[1].tok_type,
+        ast::TokenType::Operator(ast::Operator::Mul)
+    );
+
+    assert_eq!(tokens[2].value, "8");
+
+    assert_eq!(
+        tokens[3].tok_type,
+        ast::TokenType::Operator(ast::Operator::As)
+    );
+
+    assert_eq!(tokens[4].value, "float");
+    assert_eq!(tokens[4].tok_type, ast::TokenType::Identifier);
+
+    assert_eq!(
+        tokens[5].tok_type,
+        ast::TokenType::Operator(ast::Operator::Pow)
+    );
+
+    assert_eq!(tokens[6].value, "2");
+}
+
+#[test]
 fn integer_op() {
-    let tokens = Lexer::new("// && & | || + - == != / > < >> << >= <= ! ~ **")
+    let tokens = Lexer::new("// && & | || + - == != / > < >> << >= <= ! ~ ** ^ %")
         .tokenize()
         .expect("Failed to parse");
 
@@ -315,5 +375,12 @@ fn integer_op() {
         tokens[18].tok_type,
         ast::TokenType::Operator(ast::Operator::Pow)
     );
+    assert_eq!(
+        tokens[19].tok_type,
+        ast::TokenType::Operator(ast::Operator::BXor)
+    );
+    assert_eq!(
+        tokens[20].tok_type,
+        ast::TokenType::Operator(ast::Operator::Mod)
+    );
 }
-

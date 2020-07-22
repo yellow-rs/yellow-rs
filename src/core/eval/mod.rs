@@ -1,5 +1,6 @@
 pub(crate) mod ast;
 mod lexer;
+mod parser;
 
 /// Run some math expr
 pub(crate) fn exec<'a>(value: &'a str) -> String {
