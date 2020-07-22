@@ -1,4 +1,5 @@
 use crate::core::eval::ast;
+use crate::core::eval::error::*;
 
 pub(crate) struct Lexer<'a> {
     chars_peek: std::iter::Peekable<std::str::Chars<'a>>,
@@ -118,25 +119,30 @@ impl<'a> Lexer<'a> {
     /// One character literals
     fn new_literal(&mut self, c: char) -> ast::Token<'a> {
         ast::Token::new(
-            ast::TokenType::Operator(match c {
-                '+' => ast::Operator::Add,
-                '-' => ast::Operator::Sub,
-                '/' => ast::Operator::Div,
-                '*' => ast::Operator::Mul,
-                '%' => ast::Operator::Mod,
+            match c {
+                '(' => ast::TokenType::LP,
+                ')' => ast::TokenType::RP,
 
-                '&' => ast::Operator::BAnd,
-                '|' => ast::Operator::BOr,
-                '~' => ast::Operator::BNot,
-                '!' => ast::Operator::LNot,
+                _ => ast::TokenType::Operator(match c {
+                    '+' => ast::Operator::Add,
+                    '-' => ast::Operator::Sub,
+                    '/' => ast::Operator::Div,
+                    '*' => ast::Operator::Mul,
+                    '%' => ast::Operator::Mod,
 
-                '>' => ast::Operator::GT,
-                '<' => ast::Operator::LT,
+                    '&' => ast::Operator::BAnd,
+                    '|' => ast::Operator::BOr,
+                    '~' => ast::Operator::BNot,
+                    '!' => ast::Operator::LNot,
 
-                '^' => ast::Operator::BXor,
+                    '>' => ast::Operator::GT,
+                    '<' => ast::Operator::LT,
 
-                _ => panic!("Bad operator given!"),
-            }),
+                    '^' => ast::Operator::BXor,
+
+                    _ => panic!("Bad operator given!"),
+                })
+            },
             "",
             self.pos - 1,
             self.pos,
@@ -154,11 +160,11 @@ impl<'a> Lexer<'a> {
         tok
     }
 
-    fn e(current: char) -> Result<(), String> {
-        Err(format!("Unrecognized character {}", current))
+    fn e(&self, current: char) -> Result<(), Error> {
+        Err(Error::new(format!("unrecognized character {}", current), ErrorType::LexError, Pos::new(self.pos, self.pos+1)))
     }
 
-    pub(crate) fn tokenize(&mut self) -> Result<Vec<ast::Token<'a>>, String> {
+    pub(crate) fn tokenize(&mut self) -> Result<Vec<ast::Token<'a>>, Error> {
         let mut tokens: Vec<ast::Token<'a>> = Vec::new();
         let mut current = self.bump_char();
         while current != EOF_CHAR {
@@ -175,7 +181,7 @@ impl<'a> Lexer<'a> {
                     tokens.push(self.identifier());
                 }
 
-                '+' | '-' | '~' | '^' | '%' => {
+                '+' | '-' | '~' | '^' | '%' | '(' | ')' => {
                     tokens.push(self.new_literal(current));
                 }
 
@@ -213,7 +219,7 @@ impl<'a> Lexer<'a> {
                     '=' => {
                         tokens.push(self.double_op(ast::Operator::Eql));
                     }
-                    _ => Self::e(current)?,
+                    _ => self.e(current)?,
                 },
 
                 '>' => double_match! {
@@ -230,10 +236,12 @@ impl<'a> Lexer<'a> {
                     '<' => ast::Operator::BitShiftL
                 },
 
-                _ => Self::e(current)?,
+                _ => self.e(current)?,
             }
             current = self.bump_char();
         }
+        
+        tokens.push(ast::Token::new(ast::TokenType::EOF, "", self.pos, self.pos));
 
         Ok(tokens)
     }
@@ -295,7 +303,7 @@ fn indent() {
 
 #[test]
 fn integer_op() {
-    let tokens = Lexer::new("// && & | || + - == != / > < >> << >= <= ! ~ ** ^ %")
+    let tokens = Lexer::new("// && & | || + - == != / > < >> << >= <= ! ~ ** ^ % ( )")
         .tokenize()
         .expect("Failed to parse");
 
@@ -382,5 +390,13 @@ fn integer_op() {
     assert_eq!(
         tokens[20].tok_type,
         ast::TokenType::Operator(ast::Operator::Mod)
+    );
+    assert_eq!(
+        tokens[21].tok_type,
+        ast::TokenType::LP
+    );
+    assert_eq!(
+        tokens[22].tok_type,
+        ast::TokenType::RP
     );
 }
