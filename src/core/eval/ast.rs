@@ -3,7 +3,9 @@ pub(crate) enum Operator {
     Add,
     Sub,
     Mul,
+
     Div,
+    IntDiv,
 
     Pow,
 
@@ -12,9 +14,11 @@ pub(crate) enum Operator {
 
     BAnd, // Bitwise and
     BOr,  // Bitwise or
+    BNot, // Bitwise not
 
     LAnd, // Logical or
     LOr,  // Logical and
+    LNot, // Logical no
 
     BitShiftR, // Right bit shift
     BitShiftL, // Right bit shift
@@ -47,10 +51,10 @@ pub(crate) enum TokenType {
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Token<'a> {
-    tok_type: TokenType,
-    value: &'a str,
-    pos_start: usize,
-    pos_end: usize
+    pub(crate) tok_type: TokenType,
+    pub(crate) value: &'a str,
+    pub(crate) pos_start: usize,
+    pub(crate) pos_end: usize
 }
 
 impl<'a> Token<'a> {
