@@ -151,7 +151,16 @@ impl EE {
 
         Ok(EE { value, pos: self.pos })
     }
+        
+    fn pos(&self) -> Result<Self, Error> {
+        let value = match &self.value {
+            Integer(val) => Integer(val.abs()),
+            Float(val) => Float(val.abs()),
+            _ => return Err(Error::new(format!("cannot make type {} positive", self.value.display_type()), ErrorType::TypeError, self.pos)),
+        };
 
+        Ok(EE { value, pos: self.pos })
+    }
 }
 
 impl fmt::Display for EE {
@@ -191,6 +200,7 @@ impl<'a> Executer<'a> {
 
             ExpressionKind::PrefixOp(val) => match val.op {
                 ast::Operator::Sub => self.eval(*val.value)?.neg()?,
+                ast::Operator::Add => self.eval(*val.value)?.pos()?,
                 _ => {
                     return Err(Error::new(
                         format!("prefix {} not implemented yet", val.op),

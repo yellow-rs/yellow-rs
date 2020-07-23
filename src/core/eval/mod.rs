@@ -17,7 +17,7 @@ pub(crate) fn exec<'a>(value: &'a str) -> Result<String, Error> {
 
 #[test]
 fn integration_test() {
-    println!("{}", exec("1 * 2 + 3 - 4 * -5").expect("Failed to run"));
+    println!("{}", exec("+1 * 2 + 3 - 4 * -5").expect("Failed to run"));
 }
 
 
