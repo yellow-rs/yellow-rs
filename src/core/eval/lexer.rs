@@ -77,14 +77,58 @@ impl<'a> Lexer<'a> {
         *self.chars_peek.peek().unwrap_or(&EOF_CHAR)
     }
 
-    fn integer(&mut self) -> ast::Token<'a> {
-        let next_len = self.len_eat_while(|c| '0' <= c && c <= '9') + 1;
+    fn crate_tok(&self, tok_type: ast::TokenType, next_len: usize) -> ast::Token<'a> {
         ast::Token::new(
-            ast::TokenType::Integer,
+            tok_type,
             &self.file_contents[self.pos - next_len..self.pos],
             self.pos - next_len,
             self.pos,
         )
+    }
+
+    fn number_err(&mut self, next_len: &mut usize, err_val: &'static str) -> Result<(), Error> {
+        let inc = self.len_eat_while(|c| '0' <= c && c <= '9') + 1;
+        *next_len += inc;
+        if inc == 1 {
+            Err(Error::new(
+                format!("expected number after `{}`", err_val),
+                ErrorType::LexError,
+                Pos::new(self.pos, self.pos + 1),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn number(&mut self) -> Result<ast::Token<'a>, Error> {
+        let mut next_len = self.len_eat_while(|c| '0' <= c && c <= '9') + 1;
+        match self.peek_char() {
+            '.' => {
+                self.bump_char();
+                self.number_err(&mut next_len, ".")?;
+
+                // Decimal
+                let next_tok = self.peek_char();
+                match next_tok {
+                    'e' | 'E' => {
+                        // 10.124E2193
+                        self.bump_char();
+                        self.number_err(&mut next_len, if next_tok == 'e' { "e" } else { "E" })?;
+
+                        Ok(self.crate_tok(ast::TokenType::Float, next_len))
+                    }
+                    _ => Ok(self.crate_tok(ast::TokenType::Float, next_len)),
+                }
+            }
+            'e' | 'E' => {
+                // 10E100
+                self.bump_char();
+                self.number_err(&mut next_len, ".")?;
+
+                Ok(self.crate_tok(ast::TokenType::Float, next_len))
+            }
+            _ => Ok(self.crate_tok(ast::TokenType::Integer, next_len)),
+        }
     }
 
     fn identifier(&mut self) -> ast::Token<'a> {
@@ -93,7 +137,7 @@ impl<'a> Lexer<'a> {
         ast::Token::new(
             match ident {
                 "as" => ast::TokenType::Operator(ast::Operator::As),
-                _ => ast::TokenType::Identifier
+                _ => ast::TokenType::Identifier,
             },
             ident,
             self.pos - next_len,
@@ -141,7 +185,7 @@ impl<'a> Lexer<'a> {
                     '^' => ast::Operator::BXor,
 
                     _ => panic!("Bad operator given!"),
-                })
+                }),
             },
             "",
             self.pos - 1,
@@ -161,7 +205,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn e(&self, current: char) -> Result<(), Error> {
-        Err(Error::new(format!("unrecognized character {}", current), ErrorType::LexError, Pos::new(self.pos, self.pos+1)))
+        Err(Error::new(
+            format!("unrecognized character {}", current),
+            ErrorType::LexError,
+            Pos::new(self.pos, self.pos + 1),
+        ))
     }
 
     pub(crate) fn tokenize(&mut self) -> Result<Vec<ast::Token<'a>>, Error> {
@@ -169,7 +217,7 @@ impl<'a> Lexer<'a> {
         let mut current = self.bump_char();
         while current != EOF_CHAR {
             match current {
-                '0'..='9' => tokens.push(self.integer()),
+                '0'..='9' => tokens.push(self.number()?),
 
                 c if is_whitespace(c) => {
                     // Character is whitespace
@@ -240,7 +288,7 @@ impl<'a> Lexer<'a> {
             }
             current = self.bump_char();
         }
-        
+
         tokens.push(ast::Token::new(ast::TokenType::EOF, "", self.pos, self.pos));
 
         Ok(tokens)
@@ -274,8 +322,49 @@ fn integer_single() {
 }
 
 #[test]
+fn float() {
+    let tokens = Lexer::new("8.10 1230E219 1023.123e39")
+        .tokenize()
+        .expect("Failed to parse");
+    assert_eq!(tokens[0].tok_type, ast::TokenType::Float);
+    assert_eq!(tokens[1].tok_type, ast::TokenType::Float);
+    assert_eq!(tokens[2].tok_type, ast::TokenType::Float);
+
+    assert_eq!(tokens[0].value, "8.10");
+    assert_eq!(tokens[1].value, "1230E219");
+    assert_eq!(tokens[2].value, "1023.123e39");
+}
+
+#[test]
+fn float_err1() {
+    assert!(Lexer::new("8.  ").tokenize().is_err());
+}
+
+#[test]
+fn float_err2() {
+    assert!(Lexer::new("8e").tokenize().is_err());
+}
+
+#[test]
+fn float_err3() {
+    assert!(Lexer::new("8E").tokenize().is_err());
+}
+
+#[test]
+fn float_err4() {
+    assert!(Lexer::new("8.10e").tokenize().is_err());
+}
+
+#[test]
+fn float_err5() {
+    assert!(Lexer::new("8.12E").tokenize().is_err());
+}
+
+#[test]
 fn indent() {
-    let tokens = Lexer::new("pi * 8 as float ** 2").tokenize().expect("Failed to parse");
+    let tokens = Lexer::new("pi * 8 as float ** 2")
+        .tokenize()
+        .expect("Failed to parse");
     assert_eq!(tokens[0].value, "pi");
     assert_eq!(tokens[0].tok_type, ast::TokenType::Identifier);
     assert_eq!(
@@ -391,12 +480,6 @@ fn integer_op() {
         tokens[20].tok_type,
         ast::TokenType::Operator(ast::Operator::Mod)
     );
-    assert_eq!(
-        tokens[21].tok_type,
-        ast::TokenType::LP
-    );
-    assert_eq!(
-        tokens[22].tok_type,
-        ast::TokenType::RP
-    );
+    assert_eq!(tokens[21].tok_type, ast::TokenType::LP);
+    assert_eq!(tokens[22].tok_type, ast::TokenType::RP);
 }

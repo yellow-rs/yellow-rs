@@ -81,6 +81,7 @@ pub(crate) enum ExpressionKind<'a> {
     PrefixOp(PrefixOp<'a>),
     InfixOp(InfixOp<'a>),
     Integer(&'a str),
+    Float(&'a str),
     Ident(&'a str),
 }
 
@@ -93,6 +94,7 @@ impl fmt::Display for ExpressionKind<'_> {
                 ExpressionKind::PrefixOp(prefix) => prefix.op.to_string(),
                 ExpressionKind::InfixOp(infix) => infix.op.to_string(),
                 ExpressionKind::Integer(_) => "integer".to_string(),
+                ExpressionKind::Float(_) => "float".to_string(),
                 ExpressionKind::Ident(_) => "identifier".to_string()
             }
         )
@@ -122,6 +124,7 @@ pub(crate) struct PrefixOp<'a> {
 pub(crate) enum TokenType {
     Identifier,
     Integer,
+    Float,
     RP, // )
     LP, // (
     EOF,
@@ -136,6 +139,7 @@ impl fmt::Display for TokenType {
             match self {
                 // XXX: Get rid of these sad allocations
                 TokenType::Integer => "integer".to_string(),
+                TokenType::Float => "float".to_string(),
                 TokenType::Identifier => "identifier".to_string(),
                 TokenType::RP => "`)`".to_string(),
                 TokenType::LP => "`(`".to_string(),

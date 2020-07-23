@@ -110,9 +110,13 @@ impl<'a> Parser<'a> {
                 expr: ast::ExpressionKind::Integer(next.value),
                 pos: next.pos,
             }),
+            ast::TokenType::Float => Ok(ast::Expression {
+                expr: ast::ExpressionKind::Float(next.value),
+                pos: next.pos,
+            }),
             ast::TokenType::Identifier => Ok(ast::Expression {
                 expr: ast::ExpressionKind::Ident(next.value),
-                pos: next.pos
+                pos: next.pos,
             }),
             ast::TokenType::LP => {
                 let expr = self.expr(0)?;

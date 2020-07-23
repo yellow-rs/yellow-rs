@@ -329,9 +329,21 @@ impl<'a> Executer<'a> {
     pub(crate) fn eval(&mut self, ast: ast::Expression<'a>) -> Result<EE, Error> {
         Ok(match ast.expr {
             ExpressionKind::Integer(val) => EE::new(
-                ExecutionExpr::Integer(val.parse::<i128>().unwrap()),
+                ExecutionExpr::Integer(match val.parse::<i128>() {
+                    Ok(val) => val,
+                    Err(why) => return Err(Error::new(format!("error converting {} to integer: {}", val, why), ErrorType::RuntimeError, ast.pos))
+                }),
                 ast.pos,
             ),
+
+             ExpressionKind::Float(val) => EE::new(
+                ExecutionExpr::Float(match val.parse::<f64>() {
+                    Ok(val) => val,
+                    Err(why) => return Err(Error::new(format!("error converting {} to float: {}", val, why), ErrorType::RuntimeError, ast.pos))
+                }),
+                ast.pos,
+            ),
+
             ExpressionKind::InfixOp(val) => match val.op {
                 ast::Operator::Add => self.eval(*val.left)?.add(&self.eval(*val.right)?)?,
                 ast::Operator::Sub => self.eval(*val.left)?.sub(&self.eval(*val.right)?)?,
