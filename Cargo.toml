@@ -16,4 +16,3 @@ serenity = { git = "https://github.com/Lakelezz/serenity/", branch = "await" }
 fasteval = "0.2.4"
 regex= "1"
 serde_json = "1.0.56"
-lazy_static = "1.4.0"

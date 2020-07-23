@@ -1,1 +1,1 @@
-pub mod connect_four;
+pub mod c4;

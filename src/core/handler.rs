@@ -1,10 +1,7 @@
 use log::info;
 use serenity::{
     async_trait,
-    model::{
-        event::ResumedEvent,
-        gateway::Ready,
-    },
+    model::{event::ResumedEvent, gateway::Ready},
     prelude::*,
 };
 

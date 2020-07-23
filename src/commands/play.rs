@@ -1,45 +1,30 @@
-use crate::core::game::connect_four::container::ConnectFourContainer;
-
 use serenity::framework::standard::{macros::command, CommandResult};
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
-use serenity::model::channel::ReactionType;
+// use serenity::model::channel::ReactionType;
+use crate::core::game::c4::*;
 
 #[command]
 #[aliases("c4")]
 #[description("Initializes a Connect 4 session.")]
 async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
-    let mut c4 = msg
+    let gem = msg
         .channel_id
-        .say(&ctx.http, "Loading <a:loading:617628744512700447>")
-        .await
-        .unwrap();
+        .send_message(&ctx.http, |m| m.content("Initializing"))
+        .await?;
 
-    add_react(&ctx, &c4).await;
+    add_react(ctx, &gem).await;
 
-    c4.edit(ctx, |m| {
-        m.content("").embed(|e| {
-            e.title("Connect Four")
-                .field("Awaiting for player", "Turns #", false)
-                .image("https://i.imgur.com/Pnfyxmh.png")
-        })
-    })
-    .await
-    .unwrap();
+    let data = ctx.data.read().await;
+    let container = data.get::<C4ManagerContainer>().unwrap();
+    let c4manager = container.write().await;
 
-    ctx.data
-        .read()
-        .await
-        .get::<ConnectFourContainer>()
-        .unwrap()
-        .write()
-        .await
-        .add_game(msg.clone());
+    c4manager.new_game();
 
     Ok(())
 }
-
+/*
 #[command]
 #[owners_only]
 #[aliases("g")]
@@ -62,7 +47,7 @@ async fn games(ctx: &Context, msg: &Message) -> CommandResult {
 
     Ok(())
 }
-
+*/
 async fn add_react(ctx: &Context, msg: &Message) {
     let _ = msg
         .react(
