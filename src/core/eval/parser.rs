@@ -166,7 +166,6 @@ impl<'a> Parser<'a> {
         let binding_power = self.infix_op[&operator];
 
         let right = self.expr(binding_power)?;
-        println!("{}", binding_power);
 
         Ok(ast::Expression {
             pos: Pos::new(left.pos.start, right.pos.end),

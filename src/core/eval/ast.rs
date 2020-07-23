@@ -83,6 +83,20 @@ pub(crate) enum ExpressionKind<'a> {
     Integer(&'a str),
 }
 
+impl fmt::Display for ExpressionKind<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ExpressionKind::PrefixOp(prefix) => prefix.op.to_string(),
+                ExpressionKind::InfixOp(infix) => infix.op.to_string(),
+                ExpressionKind::Integer(_) => "integer".to_string()
+            }
+        )
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub(crate) struct Expression<'a> {
     pub(crate) expr: ExpressionKind<'a>,
