@@ -55,6 +55,8 @@ impl<'a> Parser<'a> {
         self.register_infix(ast::Operator::IntDiv, 60);
         self.register_infix(ast::Operator::Mod, 60);
 
+        self.register_infix(ast::Operator::Pow, 65);
+
         self.register_infix(ast::Operator::As, 70);
 
         self.register_prefix(ast::Operator::LNot, 70);

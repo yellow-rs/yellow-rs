@@ -4,15 +4,17 @@ use std::fmt;
 use crate::core::eval::error::*;
 use crate::core::eval::{ast, ast::ExpressionKind};
 
+use std::convert::TryFrom;
+
 use std::ops::Add;
-use std::ops::Sub;
-use std::ops::Mul;
 use std::ops::Div;
+use std::ops::Mul;
+use std::ops::Sub;
 
 use ExecutionExpr::*;
 enum ExecutionExpr {
-    Integer(i32),
-    Float(f32),
+    Integer(i128),
+    Float(f64),
     Bool(bool),
 }
 
@@ -57,7 +59,7 @@ impl EE {
     fn gen_type_err(&self, other: &Self, operation: &'static str) -> Error {
         Error::new(
             format!(
-                "cannot {} type {} by {}",
+                "cannot {} type {} and {}",
                 operation,
                 self.value.display_type(),
                 other.value.display_type()
@@ -71,7 +73,13 @@ impl EE {
         let value = match (&self.value, &other.value) {
             (Integer(left), Integer(right)) => Integer(match left.checked_add(*right) {
                 Some(val) => val,
-                None => return Err(Error::new("value overflowed".to_string(), ErrorType::RuntimeError, self.calc_pos(other)))
+                None => {
+                    return Err(Error::new(
+                        "value overflowed".to_string(),
+                        ErrorType::RuntimeError,
+                        self.calc_pos(other),
+                    ))
+                }
             }),
             (Float(left), Float(right)) => Float(left.add(*right)),
             _ => return Err(self.gen_type_err(other, "add")),
@@ -86,7 +94,13 @@ impl EE {
         let value = match (&self.value, &other.value) {
             (Integer(left), Integer(right)) => Integer(match left.checked_sub(*right) {
                 Some(val) => val,
-                None => return Err(Error::new("value overflowed".to_string(), ErrorType::RuntimeError, self.calc_pos(other)))
+                None => {
+                    return Err(Error::new(
+                        "value overflowed".to_string(),
+                        ErrorType::RuntimeError,
+                        self.calc_pos(other),
+                    ))
+                }
             }),
             (Float(left), Float(right)) => Float(left.sub(*right)),
             _ => return Err(self.gen_type_err(other, "subtract")),
@@ -101,7 +115,13 @@ impl EE {
         let value = match (&self.value, &other.value) {
             (Integer(left), Integer(right)) => Integer(match left.checked_mul(*right) {
                 Some(val) => val,
-                None => return Err(Error::new("value overflowed".to_string(), ErrorType::RuntimeError, self.calc_pos(other)))
+                None => {
+                    return Err(Error::new(
+                        "value overflowed".to_string(),
+                        ErrorType::RuntimeError,
+                        self.calc_pos(other),
+                    ))
+                }
             }),
             (Float(left), Float(right)) => Float(left.mul(*right)),
             _ => return Err(self.gen_type_err(other, "multiply")),
@@ -114,7 +134,7 @@ impl EE {
 
     fn div(&self, other: &Self) -> Result<Self, Error> {
         let value = match (&self.value, &other.value) {
-            (Integer(left), Integer(right)) => Float((*left as f32).div(*right as f32)),
+            (Integer(left), Integer(right)) => Float((*left as f64).div(*right as f64)),
             (Float(left), Float(right)) => Float(left.div(*right)),
             _ => return Err(self.gen_type_err(other, "divide")),
         };
@@ -128,13 +148,62 @@ impl EE {
         let value = match (&self.value, &other.value) {
             (Integer(left), Integer(right)) => Integer(match left.checked_div(*right) {
                 Some(val) => val,
-                None => return Err(Error::new("value overflowed".to_string(), ErrorType::RuntimeError, self.calc_pos(other)))
+                None => {
+                    return Err(Error::new(
+                        "value overflowed".to_string(),
+                        ErrorType::RuntimeError,
+                        self.calc_pos(other),
+                    ))
+                }
             }),
-            (Float(left), Float(right)) => Integer(match (*left as i32).checked_div(*right as i32) {
-                Some(val) => val,
-                None => return Err(Error::new("value overflowed".to_string(), ErrorType::RuntimeError, self.calc_pos(other)))
-            }),
+            (Float(left), Float(right)) => {
+                Integer(match (*left as i128).checked_div(*right as i128) {
+                    Some(val) => val,
+                    None => {
+                        return Err(Error::new(
+                            "value overflowed".to_string(),
+                            ErrorType::RuntimeError,
+                            self.calc_pos(other),
+                        ))
+                    }
+                })
+            }
             _ => return Err(self.gen_type_err(other, "divide")),
+        };
+
+        let pos = self.calc_pos(other);
+
+        Ok(EE { value, pos })
+    }
+
+    fn pow(&self, other: &Self) -> Result<Self, Error> {
+        let value = match (&self.value, &other.value) {
+            (Integer(left), Integer(right)) => Integer(
+                match left.checked_pow(match u32::try_from(*right) {
+                    Ok(val) => val,
+                    Err(why) => {
+                        return Err(Error::new(
+                            format!(
+                                "failed to raise {} to the power of {}: {}",
+                                left, right, why
+                            ),
+                            ErrorType::RuntimeError,
+                            self.calc_pos(other),
+                        ))
+                    }
+                }) {
+                    Some(val) => val,
+                    None => {
+                        return Err(Error::new(
+                            "value overflowed".to_string(),
+                            ErrorType::RuntimeError,
+                            self.calc_pos(other),
+                        ))
+                    }
+                },
+            ),
+            (Float(left), Float(right)) => Float(left.powf(*right)),
+            _ => return Err(self.gen_type_err(other, "power")),
         };
 
         let pos = self.calc_pos(other);
@@ -146,20 +215,38 @@ impl EE {
         let value = match &self.value {
             Integer(val) => Integer(-val),
             Float(val) => Float(-val),
-            _ => return Err(Error::new(format!("cannot make type {} negative", self.value.display_type()), ErrorType::TypeError, self.pos)),
+            _ => {
+                return Err(Error::new(
+                    format!("cannot make type {} negative", self.value.display_type()),
+                    ErrorType::TypeError,
+                    self.pos,
+                ))
+            }
         };
 
-        Ok(EE { value, pos: self.pos })
+        Ok(EE {
+            value,
+            pos: self.pos,
+        })
     }
-        
+
     fn pos(&self) -> Result<Self, Error> {
         let value = match &self.value {
             Integer(val) => Integer(val.abs()),
             Float(val) => Float(val.abs()),
-            _ => return Err(Error::new(format!("cannot make type {} positive", self.value.display_type()), ErrorType::TypeError, self.pos)),
+            _ => {
+                return Err(Error::new(
+                    format!("cannot make type {} positive", self.value.display_type()),
+                    ErrorType::TypeError,
+                    self.pos,
+                ))
+            }
         };
 
-        Ok(EE { value, pos: self.pos })
+        Ok(EE {
+            value,
+            pos: self.pos,
+        })
     }
 }
 
@@ -182,13 +269,18 @@ impl<'a> Executer<'a> {
 
     pub(crate) fn eval(&mut self, ast: ast::Expression<'a>) -> Result<EE, Error> {
         Ok(match ast.expr {
-            ExpressionKind::Integer(val) => EE::new(ExecutionExpr::Integer(val.parse::<i32>().unwrap()), ast.pos),
+            ExpressionKind::Integer(val) => EE::new(
+                ExecutionExpr::Integer(val.parse::<i128>().unwrap()),
+                ast.pos,
+            ),
             ExpressionKind::InfixOp(val) => match val.op {
                 ast::Operator::Add => self.eval(*val.left)?.add(&self.eval(*val.right)?)?,
                 ast::Operator::Sub => self.eval(*val.left)?.sub(&self.eval(*val.right)?)?,
                 ast::Operator::Mul => self.eval(*val.left)?.mul(&self.eval(*val.right)?)?,
                 ast::Operator::Div => self.eval(*val.left)?.div(&self.eval(*val.right)?)?,
                 ast::Operator::IntDiv => self.eval(*val.left)?.int_div(&self.eval(*val.right)?)?,
+                ast::Operator::Pow => self.eval(*val.left)?.pow(&self.eval(*val.right)?)?,
+
                 _ => {
                     return Err(Error::new(
                         format!("infix {} not implemented yet", val.op),
@@ -196,7 +288,7 @@ impl<'a> Executer<'a> {
                         ast.pos,
                     ))
                 }
-            }
+            },
 
             ExpressionKind::PrefixOp(val) => match val.op {
                 ast::Operator::Sub => self.eval(*val.value)?.neg()?,
@@ -208,7 +300,7 @@ impl<'a> Executer<'a> {
                         ast.pos,
                     ))
                 }
-            }
+            },
         })
     }
 }

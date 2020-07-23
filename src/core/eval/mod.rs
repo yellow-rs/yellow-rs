@@ -17,7 +17,8 @@ pub(crate) fn exec<'a>(value: &'a str) -> Result<String, Error> {
 
 #[test]
 fn integration_test() {
-    println!("{}", exec("+1 * 2 + 3 - 4 * -5").expect("Failed to run"));
+    assert_eq!("25".to_string(), exec("+1 * 2 + 3 - 4 * -5").expect("Failed to run"));
+    assert_eq!("10000000100".to_string(), exec("10*10+10**10").expect("Failed to run"));
 }
 
 
