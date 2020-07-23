@@ -81,6 +81,7 @@ pub(crate) enum ExpressionKind<'a> {
     PrefixOp(PrefixOp<'a>),
     InfixOp(InfixOp<'a>),
     Integer(&'a str),
+    Ident(&'a str),
 }
 
 impl fmt::Display for ExpressionKind<'_> {
@@ -91,7 +92,8 @@ impl fmt::Display for ExpressionKind<'_> {
             match self {
                 ExpressionKind::PrefixOp(prefix) => prefix.op.to_string(),
                 ExpressionKind::InfixOp(infix) => infix.op.to_string(),
-                ExpressionKind::Integer(_) => "integer".to_string()
+                ExpressionKind::Integer(_) => "integer".to_string(),
+                ExpressionKind::Ident(_) => "identifier".to_string()
             }
         )
     }

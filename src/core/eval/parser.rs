@@ -55,6 +55,7 @@ impl<'a> Parser<'a> {
         self.register_infix(ast::Operator::IntDiv, 60);
         self.register_infix(ast::Operator::Mod, 60);
 
+        // TODO: make powers right assoc
         self.register_infix(ast::Operator::Pow, 65);
 
         self.register_infix(ast::Operator::As, 70);
@@ -75,25 +76,20 @@ impl<'a> Parser<'a> {
                 self.pos += 1;
                 *tok
             }
-            None => {
-                dbg!(self.tokens[self.tokens.len()-1])
-            }
+            None => dbg!(self.tokens[self.tokens.len() - 1]),
         }
     }
 
     fn bp_infix(&self, op: ast::Token<'a>) -> u16 {
         match op.tok_type {
-            ast::TokenType::Operator(oper) => {
-                self.infix_op[&oper]
-            }
-            _ => unreachable!()
+            ast::TokenType::Operator(oper) => self.infix_op[&oper],
+            _ => unreachable!(),
         }
     }
 
     fn bp_prefix(&self, op: &ast::Token<'a>) -> u16 {
         self.prefix_op[&op.unwrap_op()]
     }
-
 
     fn item(&mut self) -> Result<ast::Expression<'a>, Error> {
         if let Ok(prefix) = self.get_operator_prefix() {
@@ -114,6 +110,22 @@ impl<'a> Parser<'a> {
                 expr: ast::ExpressionKind::Integer(next.value),
                 pos: next.pos,
             }),
+            ast::TokenType::Identifier => Ok(ast::Expression {
+                expr: ast::ExpressionKind::Ident(next.value),
+                pos: next.pos
+            }),
+            ast::TokenType::LP => {
+                let expr = self.expr(0)?;
+                let next_tok = self.advance();
+                if ast::TokenType::RP == next_tok.tok_type {
+                    return Ok(expr);
+                }
+                return Err(Error::new(
+                    format!("expected closing brace, found {}", next_tok),
+                    ErrorType::SyntaxError,
+                    next_tok.pos,
+                ));
+            }
             _ => Err(Error::new(
                 format!("unexpected {}", next),
                 ErrorType::SyntaxError,
@@ -193,15 +205,15 @@ impl<'a> Parser<'a> {
                 Ok(oper) => {
                     operator = oper;
                 }
-                Err(why) => return Err(why),
+                Err(_) => return Ok(left),
             }
 
             let binding_power = self.infix_op[&operator];
 
             if !(binding_power > prec) {
                 break;
-            }   
-            
+            }
+
             self.advance(); // Advance operator
 
             match self.led(left, operator) {
