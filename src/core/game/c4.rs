@@ -1,4 +1,8 @@
-use serenity::model::{channel::Message, id::MessageId};
+use serenity::model::{
+    channel::Message,
+    id::{MessageId, UserId},
+    // user::User,
+};
 use serenity::prelude::{RwLock, TypeMapKey};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,12 +15,20 @@ impl TypeMapKey for C4ManagerContainer {
 }
 
 pub trait C4ManagerTrait {
-    fn new_game(&self);
+    fn new_game(&mut self, msg: Message);
+    fn reacted(&mut self, msg: MessageId, pos: usize, user: UserId);
 }
 
 impl C4ManagerTrait for C4Manager {
-    fn new_game(&self) {
-        println!("You reached the end of the line!");
+    fn new_game(&mut self, msg: Message) {
+        self.insert(msg.id, C4Instance::new(msg));
+    }
+    fn reacted(&mut self, msg_id: MessageId, pos: usize, user: UserId) {
+        if pos > 0 && pos < 8 {
+            if let Some(gem) = self.get(&msg_id) {
+                gem.move_coin(pos, user);
+            }
+        }
     }
 }
 
@@ -27,15 +39,24 @@ pub struct C4Instance {
     turns: u8,
 }
 
-type PlayersTwo = (u64, u64);
+type PlayersTwo = (UserId, UserId);
 
 impl C4Instance {
     pub fn new(msg: Message) -> Self {
         C4Instance {
             msg,
             board: Board7By6::new(),
-            two_players: (1, 2),
+            two_players: (UserId(0), UserId(0)),
             turns: 1,
+        }
+    }
+    pub fn move_coin(&mut self, pos: usize, user: UserId) {
+        if self.turns > 2 {
+            if user == self.two_players.0 || user == self.two_players.1 {}
+        } else if self.turns == 1 {
+            self.two_players.0 = user;
+        } else if !(self.two_players.0 == user) {
+            self.two_players.1 = user;
         }
     }
 }

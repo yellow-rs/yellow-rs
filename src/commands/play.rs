@@ -1,8 +1,8 @@
 use serenity::framework::standard::{macros::command, CommandResult};
+use serenity::model::channel::ReactionType;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
-// use serenity::model::channel::ReactionType;
 use crate::core::game::c4::*;
 
 #[command]
@@ -18,9 +18,9 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
 
     let data = ctx.data.read().await;
     let container = data.get::<C4ManagerContainer>().unwrap();
-    let c4manager = container.write().await;
+    let mut c4manager = container.write().await;
 
-    c4manager.new_game();
+    c4manager.new_game(gem);
 
     Ok(())
 }

@@ -76,6 +76,7 @@ async fn main() {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
         data.insert::<C4ManagerContainer>(Arc::new(RwLock::new(C4Manager::new())));
+        client.cache_and_http.cache.set_max_messages(50).await;
     }
 
     if let Err(why) = client.start_autosharded().await {
