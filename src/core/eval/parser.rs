@@ -119,6 +119,14 @@ impl<'a> Parser<'a> {
                 expr: ast::ExpressionKind::Ident(next.value),
                 pos: next.pos,
             }),
+            ast::TokenType::FALSE => Ok(ast::Expression {
+                expr: ast::ExpressionKind::False,
+                pos: next.pos
+            }),
+            ast::TokenType::TRUE => Ok(ast::Expression {
+                expr: ast::ExpressionKind::True,
+                pos: next.pos
+            }),
             ast::TokenType::LP => {
                 let expr = self.expr(0)?;
                 let next_tok = self.advance();

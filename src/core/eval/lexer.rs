@@ -137,6 +137,8 @@ impl<'a> Lexer<'a> {
         ast::Token::new(
             match ident {
                 "as" => ast::TokenType::Operator(ast::Operator::As),
+                "true" => ast::TokenType::TRUE,
+                "false" => ast::TokenType::FALSE,
                 _ => ast::TokenType::Identifier,
             },
             ident,

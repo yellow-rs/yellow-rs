@@ -484,6 +484,9 @@ impl<'a> Executer<'a> {
 
     pub(crate) fn eval(&mut self, ast: ast::Expression<'a>) -> Result<EE, Error> {
         Ok(match ast.expr {
+            ExpressionKind::True => EE::new(Bool(true), ast.pos),
+            ExpressionKind::False => EE::new(Bool(false), ast.pos),
+
             ExpressionKind::Integer(val) => EE::new(
                 ExecutionExpr::Integer(match val.parse::<i128>() {
                     Ok(val) => val,
@@ -552,6 +555,7 @@ impl<'a> Executer<'a> {
                 ast::Operator::Sub => self.eval(*val.value)?.neg()?,
                 ast::Operator::Add => self.eval(*val.value)?.pos()?,
                 ast::Operator::BNot => self.eval(*val.value)?.bnot()?,
+                ast::Operator::LNot => self.eval(*val.value)?.lnot()?,
                 _ => {
                     return Err(Error::new(
                         format!("prefix {} not implemented yet", val.op),

@@ -83,6 +83,8 @@ pub(crate) enum ExpressionKind<'a> {
     Integer(&'a str),
     Float(&'a str),
     Ident(&'a str),
+    True,
+    False
 }
 
 impl fmt::Display for ExpressionKind<'_> {
@@ -95,7 +97,9 @@ impl fmt::Display for ExpressionKind<'_> {
                 ExpressionKind::InfixOp(infix) => infix.op.to_string(),
                 ExpressionKind::Integer(_) => "integer".to_string(),
                 ExpressionKind::Float(_) => "float".to_string(),
-                ExpressionKind::Ident(_) => "identifier".to_string()
+                ExpressionKind::Ident(_) => "identifier".to_string(),
+                ExpressionKind::True => "true".to_string(),
+                ExpressionKind::False => "false".to_string()
             }
         )
     }
@@ -128,6 +132,8 @@ pub(crate) enum TokenType {
     RP, // )
     LP, // (
     EOF,
+    TRUE,
+    FALSE,
     Operator(Operator),
 }
 
@@ -144,6 +150,9 @@ impl fmt::Display for TokenType {
                 TokenType::RP => "`)`".to_string(),
                 TokenType::LP => "`(`".to_string(),
                 TokenType::EOF => "end of file".to_string(),
+
+                TokenType::TRUE => "true".to_string(),
+                TokenType::FALSE => "false".to_string(),
 
                 TokenType::Operator(op) => op.to_string()
             }

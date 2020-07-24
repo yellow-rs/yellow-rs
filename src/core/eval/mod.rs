@@ -95,3 +95,23 @@ fn integration_test16() {
     assert_eq!("-25".to_string(), exec("~24").expect("Failed to  run"))
 }
 
+#[test]
+fn integration_test17() {
+    assert_eq!("false".to_string(), exec("false && true").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test18() {
+    assert_eq!("true".to_string(), exec("false || true").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test19() {
+    assert_eq!("false".to_string(), exec("!true").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test20() {
+    assert_eq!("true".to_string(), exec("!false").expect("Failed to  run"))
+}
+
