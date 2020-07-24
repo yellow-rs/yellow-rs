@@ -10,7 +10,7 @@ use std::ops::{Add, Div, Mul, Sub};
 
 use ExecutionExpr::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum ExecutionExpr {
     Integer(i128),
     Float(f64),
@@ -463,6 +463,14 @@ impl EE {
             self.pos
         )
     }
+
+    fn eql(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(Bool(self.value == other.value), self.calc_pos(other))
+    }
+
+    fn neql(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(Bool(self.value != other.value), self.calc_pos(other))
+    }
 }
 
 impl fmt::Display for EE {
@@ -541,6 +549,9 @@ impl<'a> Executer<'a> {
                 ast::Operator::BOr => self.eval(*val.left)?.bor(&self.eval(*val.right)?)?,
                 ast::Operator::BAnd => self.eval(*val.left)?.band(&self.eval(*val.right)?)?,
                 ast::Operator::BXor => self.eval(*val.left)?.bxor(&self.eval(*val.right)?)?,
+
+                ast::Operator::NEql => self.eval(*val.left)?.neql(&self.eval(*val.right)?)?,
+                ast::Operator::Eql => self.eval(*val.left)?.eql(&self.eval(*val.right)?)?,
 
                 _ => {
                     return Err(Error::new(

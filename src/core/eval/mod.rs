@@ -115,3 +115,23 @@ fn integration_test20() {
     assert_eq!("true".to_string(), exec("!false").expect("Failed to  run"))
 }
 
+#[test]
+fn integration_test21() {
+    assert_eq!("false".to_string(), exec("10 == 24").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test22() {
+    assert_eq!("true".to_string(), exec("10 == 10").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test23() {
+    assert_eq!("true".to_string(), exec("10 != 24").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test24() {
+    assert_eq!("false".to_string(), exec("10 != 10").expect("Failed to  run"))
+}
+
