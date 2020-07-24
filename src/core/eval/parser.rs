@@ -92,6 +92,7 @@ impl<'a> Parser<'a> {
     }
 
     fn item(&mut self) -> Result<ast::Expression<'a>, Error> {
+        // Null-Denotation
         if let Ok(prefix) = self.get_operator_prefix() {
             let binding_power = self.bp_prefix(&prefix);
             let item = self.expr(binding_power)?;
@@ -176,6 +177,7 @@ impl<'a> Parser<'a> {
         ))
     }
 
+    // Left-Denotation
     fn led(
         &mut self,
         left: ast::Expression<'a>,
