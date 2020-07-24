@@ -16,17 +16,17 @@ impl TypeMapKey for C4ManagerContainer {
 
 pub trait C4ManagerTrait {
     fn new_game(&mut self, msg: Message);
-    fn reacted(&mut self, msg: MessageId, pos: usize, user: UserId);
+    fn reacted(&self, msg: MessageId, pos: usize, user: UserId);
 }
 
 impl C4ManagerTrait for C4Manager {
     fn new_game(&mut self, msg: Message) {
         self.insert(msg.id, C4Instance::new(msg));
     }
-    fn reacted(&mut self, msg_id: MessageId, pos: usize, user: UserId) {
+    fn reacted(&self, msg_id: MessageId, pos: usize, user: UserId) {
         if pos > 0 && pos < 8 {
             if let Some(gem) = self.get(&msg_id) {
-                gem.move_coin(pos, user);
+                // gem.move_coin(pos, user);
             }
         }
     }

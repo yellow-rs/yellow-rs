@@ -2,7 +2,6 @@ mod commands;
 mod core;
 
 use serenity::{
-    cache::{Cache, Settings},
     framework::{standard::macros::group, StandardFramework},
     http::Http,
     prelude::*,

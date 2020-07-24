@@ -42,7 +42,7 @@ impl EventHandler for ClientHandler {
 
                             let data = ctx.data.read().await;
                             let container = data.get::<C4ManagerContainer>().unwrap();
-                            let manager = container.read().await;
+                            let mut manager = container.read().await;
 
                             manager.reacted(msg.id, value as usize, add_reaction.user_id);
                             let _ = add_reaction.delete(&ctx.http).await;
