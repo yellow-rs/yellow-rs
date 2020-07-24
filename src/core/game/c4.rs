@@ -54,9 +54,9 @@ impl C4Instance {
         if self.turns > 2 {
             if user == self.two_players.0 || user == self.two_players.1 {}
         } else if self.turns == 1 {
-            self.two_players.0 = user;
+            // self.two_players.0 = user;
         } else if !(self.two_players.0 == user) {
-            self.two_players.1 = user;
+            // self.two_players.1 = user;
         }
     }
 }
@@ -75,7 +75,7 @@ impl BoardPlayable for Board7By6 {
     }
     fn coin(&mut self, new_coin: CellState, pos: usize) -> bool {
         for i in (0..6).rev() {
-            if self[i][pos] == CellState::Vacant {
+            if self[i][pos].is_vacant() {
                 self[i][pos] = new_coin;
                 return true;
             }
@@ -97,4 +97,13 @@ pub enum CellState {
     Vacant,
     One,
     Two,
+}
+
+impl CellState {
+    fn is_vacant(&self) -> bool {
+        if let CellState::Vacant = self {
+            return true;
+        }
+        false
+    }
 }
