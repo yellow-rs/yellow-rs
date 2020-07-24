@@ -75,3 +75,23 @@ fn integration_test12() {
     assert_eq!("8".to_string(), exec("16 >> 1").expect("Failed to  run"))
 }
 
+#[test]
+fn integration_test13() {
+    assert_eq!("18".to_string(), exec("10 ^ 24").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test14() {
+    assert_eq!("26".to_string(), exec("10 | 24").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test15() {
+    assert_eq!("8".to_string(), exec("10 & 24").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test16() {
+    assert_eq!("-25".to_string(), exec("~24").expect("Failed to  run"))
+}
+
