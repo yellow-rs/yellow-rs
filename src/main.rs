@@ -1,26 +1,20 @@
 mod commands;
 mod core;
 
-use std::{
-    collections::{HashMap, HashSet},
-    env,
-    sync::Arc,
-};
-
 use serenity::{
-    cache::{Cache, Settings},
     framework::{standard::macros::group, StandardFramework},
     http::Http,
     prelude::*,
 };
+use std::{collections::HashSet, env, sync::Arc};
 
 use log::error;
 
-use crate::commands::{misc::*, tech::*, utils::*};
+use crate::commands::{misc::*, play::*, tech::*, utils::*};
 
 use crate::core::{
+    game::c4::{C4Manager, C4ManagerContainer},
     handler::ClientHandler,
-    messagecache_container::MessageCacheContainer,
     shardmanager_container::ShardManagerContainer,
 };
 
@@ -35,6 +29,10 @@ struct Tech;
 #[group]
 #[commands(eval)]
 struct Util;
+
+#[group]
+#[commands(connect_four)]
+struct Play;
 
 #[tokio::main]
 async fn main() {
@@ -59,9 +57,6 @@ async fn main() {
         Err(why) => panic!("Could not access app info: {:?}", why),
     };
 
-    let settings = Settings::new().max_messages(1).clone();
-    let _cache = Cache::new_with_settings(settings);
-
     let mut client = Client::new(&token)
         .framework(
             StandardFramework::new()
@@ -69,7 +64,8 @@ async fn main() {
                 .help(&HELP)
                 .group(&MISC_GROUP)
                 .group(&TECH_GROUP)
-                .group(&UTIL_GROUP),
+                .group(&UTIL_GROUP)
+                .group(&PLAY_GROUP),
         )
         .event_handler(ClientHandler)
         .await
@@ -78,7 +74,8 @@ async fn main() {
     {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
-        data.insert::<MessageCacheContainer>(Arc::new(RwLock::new(HashMap::new())));
+        data.insert::<C4ManagerContainer>(Arc::new(RwLock::new(C4Manager::new())));
+        client.cache_and_http.cache.set_max_messages(50).await;
     }
 
     if let Err(why) = client.start_autosharded().await {

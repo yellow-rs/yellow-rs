@@ -15,5 +15,3 @@ tokio = { version = "0.2", features = ["macros"] }
 serenity = { git = "https://github.com/Lakelezz/serenity/", branch = "await" }
 regex= "1"
 serde_json = "1.0.56"
-lazy_static = "1.4.0"
-
