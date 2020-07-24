@@ -65,4 +65,13 @@ fn integration_test10() {
     assert!(exec("10.1 // 1").is_err());
 }
 
+#[test]
+fn integration_test11() {
+    assert_eq!("16".to_string(), exec("8 << 1").expect("Failed to  run"))
+}
+
+#[test]
+fn integration_test12() {
+    assert_eq!("8".to_string(), exec("16 >> 1").expect("Failed to  run"))
+}
 

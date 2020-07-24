@@ -6,10 +6,7 @@ use crate::core::eval::{ast, ast::ExpressionKind};
 
 use std::convert::TryFrom;
 
-use std::ops::Add;
-use std::ops::Div;
-use std::ops::Mul;
-use std::ops::Sub;
+use std::ops::{ Add, Div, Mul, Sub };
 
 use ExecutionExpr::*;
 
@@ -88,7 +85,7 @@ impl EE {
                     Some(val) => val,
                     None => {
                         return Err(Error::new(
-                            "value overflowed".to_string(),
+                            format!("failed to add {} and {}: value overflowed", left, right),
                             ErrorType::RuntimeError,
                             self.calc_pos(other),
                         ));
@@ -108,7 +105,7 @@ impl EE {
                     Some(val) => val,
                     None => {
                         return Err(Error::new(
-                            "value overflowed".to_string(),
+                            format!("failed to subtract {} from {}: value overflowed", right, left),
                             ErrorType::RuntimeError,
                             self.calc_pos(other),
                         ));
@@ -128,7 +125,7 @@ impl EE {
                     Some(val) => val,
                     None => {
                         return Err(Error::new(
-                            "value overflowed".to_string(),
+                            format!("failed to multiple {} by {}: value overflowed", right, left),
                             ErrorType::RuntimeError,
                             self.calc_pos(other),
                         ));
@@ -159,7 +156,7 @@ impl EE {
                     Some(val) => val,
                     None => {
                         return Err(Error::new(
-                            "value overflowed".to_string(),
+                            format!("failed to integer divide {} by {}: value overflowed", right, left),
                             ErrorType::RuntimeError,
                             self.calc_pos(other),
                         ));
@@ -170,7 +167,7 @@ impl EE {
                         Some(val) => val,
                         None => {
                             return Err(Error::new(
-                                "value overflowed".to_string(),
+                                format!("failed to integer divide {} by {}: value overflowed", right, left),
                                 ErrorType::RuntimeError,
                                 self.calc_pos(other),
                             ))
@@ -203,7 +200,7 @@ impl EE {
                         Some(val) => val,
                         None => {
                             return Err(Error::new(
-                                "value overflowed".to_string(),
+                                format!("failed to raise {} to the power of {}: value overflowed", right, left),
                                 ErrorType::RuntimeError,
                                 self.calc_pos(other),
                             ));
@@ -216,6 +213,77 @@ impl EE {
             self.calc_pos(other)
         )
     }
+
+    fn bitshift_l(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(
+            match (&self.value, &other.value) {
+                (Integer(left), Integer(right)) => {
+                    match left.checked_shl(match u32::try_from(*right) {
+                        Ok(val) => val,
+                        Err(why) => {
+                            return Err(Error::new(
+                                format!(
+                                    "failed to bitshift {} left {}: {}",
+                                    left, right, why
+                                ),
+                                ErrorType::RuntimeError,
+                                self.calc_pos(other),
+                            ));
+                        }
+
+                    }) {
+                        Some(val) => Integer(val),
+                        None => return Err(Error::new(
+                                format!(
+                                    "failed to bitshift {} left by {}: overflowed",
+                                    left, right
+                                ),
+                                ErrorType::RuntimeError,
+                                self.calc_pos(other),
+                            ))
+                    }
+                }
+                _ => return Err(self.gen_type_err(other, "bitshift left"))
+            },
+            self.calc_pos(other)
+        )
+    }
+
+    fn bitshift_r(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(
+            match (&self.value, &other.value) {
+                (Integer(left), Integer(right)) => {
+                    match left.checked_shr(match u32::try_from(*right) {
+                        Ok(val) => val,
+                        Err(why) => {
+                            return Err(Error::new(
+                                format!(
+                                    "failed to bitshift {} right {}: {}",
+                                    left, right, why
+                                ),
+                                ErrorType::RuntimeError,
+                                self.calc_pos(other),
+                            ));
+                        }
+
+                    }) {
+                        Some(val) => Integer(val),
+                        None => return Err(Error::new(
+                                format!(
+                                    "failed to bitshift {} right by {}: overflowed",
+                                    left, right
+                                ),
+                                ErrorType::RuntimeError,
+                                self.calc_pos(other),
+                            ))
+                    }
+                }
+                _ => return Err(self.gen_type_err(other, "bitshift right"))
+            },
+            self.calc_pos(other)
+        )
+    }
+
 
     fn as_cast<'a>(&self, target_type: ast::Expression<'a>) -> Result<Self, Error> {
         from_expr!(
@@ -344,6 +412,7 @@ impl<'a> Executer<'a> {
                 ast.pos,
             ),
 
+            // Where all the magic happens
             ExpressionKind::InfixOp(val) => match val.op {
                 ast::Operator::Add => self.eval(*val.left)?.add(&self.eval(*val.right)?)?,
                 ast::Operator::Sub => self.eval(*val.left)?.sub(&self.eval(*val.right)?)?,
@@ -352,6 +421,8 @@ impl<'a> Executer<'a> {
                 ast::Operator::IntDiv => self.eval(*val.left)?.int_div(&self.eval(*val.right)?)?,
                 ast::Operator::Pow => self.eval(*val.left)?.pow(&self.eval(*val.right)?)?,
                 ast::Operator::As => self.eval(*val.left)?.as_cast(*val.right)?,
+                ast::Operator::BitShiftL => self.eval(*val.left)?.bitshift_l(&self.eval(*val.right)?)?,
+                ast::Operator::BitShiftR => self.eval(*val.left)?.bitshift_r(&self.eval(*val.right)?)?,
 
                 _ => {
                     return Err(Error::new(
