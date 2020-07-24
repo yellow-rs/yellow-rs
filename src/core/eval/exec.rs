@@ -528,10 +528,28 @@ pub struct Executer<'a> {
     symbtab: HashMap<&'a str, EE>,
 }
 
+macro_rules! map(
+    { $($key:expr => $value:expr),+ } => {
+        {
+            let mut m = ::std::collections::HashMap::new();
+            $(
+                m.insert($key, EE::new(Float($value), Pos::new(0, 0)));
+            )+
+            m
+        }
+     };
+);
+
+use std::f64::consts;
 impl<'a> Executer<'a> {
     pub(crate) fn new() -> Self {
         Executer {
-            symbtab: HashMap::new(),
+            symbtab: map!(
+                "pi" => consts::PI,
+                "tau" => consts::PI * 2.0,
+                "e" => consts::E,
+                "sqrt2" => consts::SQRT_2
+            ),
         }
     }
 

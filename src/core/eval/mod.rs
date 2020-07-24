@@ -155,3 +155,8 @@ fn integration_test28() {
     assert_eq!("true".to_string(), exec("10 <= 10").expect("Failed to run"))
 }
 
+#[test]
+fn integration_test29() {
+    assert_eq!("3".to_string(), exec("pi as int").expect("Failed to run"))
+}
+
