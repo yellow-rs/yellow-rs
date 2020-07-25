@@ -68,7 +68,7 @@ impl EE {
     fn gen_type_err(&self, other: &Self, operation: &'static str) -> Error {
         Error::new(
             format!(
-                "cannot {} type {} and {}",
+                "cannot apply operator `{}` on types {} and {}",
                 operation,
                 self.value.display_type(),
                 other.value.display_type()
@@ -128,7 +128,7 @@ impl EE {
                     Some(val) => val,
                     None => {
                         return Err(Error::new(
-                            format!("failed to multiple `{}` by `{}`: value overflowed", right, left),
+                            format!("failed to multiply `{}` by `{}`: value overflowed", right, left),
                             ErrorType::RuntimeError,
                             self.calc_pos(other),
                         ));
@@ -136,6 +136,17 @@ impl EE {
                 }),
                 (Float(left), Float(right)) => Float(left.mul(*right)),
                 _ => return Err(self.gen_type_err(other, "multiply")),
+            },
+            self.calc_pos(other)
+        )
+    }
+
+    fn modulo(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(
+            match (&self.value, &other.value) {
+                (Integer(left), Integer(right)) => Integer(*left % *right),
+                (Float(left), Float(right)) => Float(*left % *right),
+                _ => return Err(self.gen_type_err(other, "modulo")),
             },
             self.calc_pos(other)
         )
@@ -183,7 +194,7 @@ impl EE {
                         }
                     })
                 }
-                _ => return Err(self.gen_type_err(other, "divide")),
+                _ => return Err(self.gen_type_err(other, "integer divide")),
             },
             self.calc_pos(other)
         )
@@ -245,7 +256,7 @@ impl EE {
         from_expr!(
             match (&self.value, &other.value) {
                 (Bool(left), Bool(right)) => Bool(*left && *right),
-                _ => return Err(self.gen_type_err(other, "apply logical and to")),
+                _ => return Err(self.gen_type_err(other, "logical and")),
             },
             self.pos
         )
@@ -255,7 +266,7 @@ impl EE {
         from_expr!(
             match (&self.value, &other.value) {
                 (Bool(left), Bool(right)) => Bool(*left || *right),
-                _ => return Err(self.gen_type_err(other, "apply logical or to")),
+                _ => return Err(self.gen_type_err(other, "logical or")),
             },
             self.pos
         )
@@ -265,7 +276,7 @@ impl EE {
         from_expr!(
             match (&self.value, &other.value) {
                 (Integer(left), Integer(right)) => Integer(*left & *right),
-                _ => return Err(self.gen_type_err(other, "apply bitwise and to")),
+                _ => return Err(self.gen_type_err(other, "bitwise and")),
             },
             self.pos
         )
@@ -275,7 +286,7 @@ impl EE {
         from_expr!(
             match (&self.value, &other.value) {
                 (Integer(left), Integer(right)) => Integer(*left | *right),
-                _ => return Err(self.gen_type_err(other, "apply bitwise or to")),
+                _ => return Err(self.gen_type_err(other, "bitwise or")),
             },
             self.pos
         )
@@ -285,7 +296,7 @@ impl EE {
         from_expr!(
             match (&self.value, &other.value) {
                 (Integer(left), Integer(right)) => Integer(*left ^ *right),
-                _ => return Err(self.gen_type_err(other, "apply bitwise xor to")),
+                _ => return Err(self.gen_type_err(other, "bitwise xor")),
             },
             self.pos
         )
@@ -334,7 +345,7 @@ impl EE {
                         }
                     }
                 }
-                _ => return Err(self.gen_type_err(other, "bitshift left")),
+                _ => return Err(self.gen_type_err(other, "left bitshift")),
             },
             self.calc_pos(other)
         )
@@ -367,7 +378,7 @@ impl EE {
                         }
                     }
                 }
-                _ => return Err(self.gen_type_err(other, "bitshift right")),
+                _ => return Err(self.gen_type_err(other, "right bitshift ")),
             },
             self.calc_pos(other)
         )
@@ -477,7 +488,7 @@ impl EE {
             match (&self.value, &other.value) {
                 (Integer(left), Integer(right)) => Bool(left < right),
                 (Float(left), Float(right)) => Bool(left < right),
-                _ => return Err(self.gen_type_err(other, "less than operator")),
+                _ => return Err(self.gen_type_err(other, "less than")),
             },
             self.calc_pos(other)
         )
@@ -488,7 +499,7 @@ impl EE {
             match (&self.value, &other.value) {
                 (Integer(left), Integer(right)) => Bool(left > right),
                 (Float(left), Float(right)) => Bool(left > right),
-                _ => return Err(self.gen_type_err(other, "greater than operator")),
+                _ => return Err(self.gen_type_err(other, "greater than")),
             },
             self.calc_pos(other)
         )
@@ -499,7 +510,7 @@ impl EE {
             match (&self.value, &other.value) {
                 (Integer(left), Integer(right)) => Bool(left <= right),
                 (Float(left), Float(right)) => Bool(left <= right),
-                _ => return Err(self.gen_type_err(other, "less than operator")),
+                _ => return Err(self.gen_type_err(other, "less than")),
             },
             self.calc_pos(other)
         )
@@ -510,7 +521,7 @@ impl EE {
             match (&self.value, &other.value) {
                 (Integer(left), Integer(right)) => Bool(left >= right),
                 (Float(left), Float(right)) => Bool(left >= right),
-                _ => return Err(self.gen_type_err(other, "greater than operator")),
+                _ => return Err(self.gen_type_err(other, "greater than")),
             },
             self.calc_pos(other)
         )
@@ -592,6 +603,8 @@ impl<'a> Executer<'a> {
                 ast::Operator::Sub => self.eval(*val.left)?.sub(&self.eval(*val.right)?)?,
                 ast::Operator::Mul => self.eval(*val.left)?.mul(&self.eval(*val.right)?)?,
                 ast::Operator::Div => self.eval(*val.left)?.div(&self.eval(*val.right)?)?,
+
+                ast::Operator::Mod => self.eval(*val.left)?.modulo(&self.eval(*val.right)?)?,
 
                 ast::Operator::IntDiv => self.eval(*val.left)?.int_div(&self.eval(*val.right)?)?,
                 ast::Operator::Pow => self.eval(*val.left)?.pow(&self.eval(*val.right)?)?,
