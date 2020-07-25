@@ -160,3 +160,43 @@ fn integration_test29() {
     assert_eq!("3".to_string(), exec("pi as int").expect("Failed to run"))
 }
 
+#[test]
+fn integration_test30() {
+    assert_eq!("1".to_string(), exec("11 % 10").expect("Failed to run"))
+}
+
+#[test]
+fn integration_test31() {
+    assert_eq!("10.5".to_string(), exec("1123123.5 % 123.0").expect("Failed to run"))
+}
+
+#[test]
+fn integration_test32() {
+    assert!(exec("10.1 << 1").is_err());
+}
+
+#[test]
+fn integration_test33() {
+    assert!(exec("10.1 >> 1").is_err());
+}
+
+#[test]
+fn integration_test34() {
+    assert!(exec("true >= false").is_err());
+}
+
+#[test]
+fn integration_test35() {
+    assert!(exec("false <= true").is_err());
+}
+
+#[test]
+fn integration_test36() {
+    assert!(exec("false > false").is_err());
+}
+
+#[test]
+fn integration_test37() {
+    assert!(exec("true < true").is_err());
+}
+
