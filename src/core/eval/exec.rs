@@ -10,7 +10,7 @@ use std::ops::{Add, Div, Mul, Sub};
 
 use ExecutionExpr::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum ExecutionExpr {
     Integer(i128),
     Float(f64),
@@ -20,9 +20,9 @@ enum ExecutionExpr {
 impl ExecutionExpr {
     fn display_type(&self) -> &'static str {
         match self {
-            ExecutionExpr::Integer(_) => "integer",
-            ExecutionExpr::Float(_) => "float",
-            ExecutionExpr::Bool(_) => "boolean",
+            ExecutionExpr::Integer(_) => "`integer`",
+            ExecutionExpr::Float(_) => "`float`",
+            ExecutionExpr::Bool(_) => "`boolean`",
         }
     }
 }
@@ -85,7 +85,7 @@ impl EE {
                     Some(val) => val,
                     None => {
                         return Err(Error::new(
-                            format!("failed to add {} and {}: value overflowed", left, right),
+                            format!("failed to add `{}` and `{}`: value overflowed", left, right),
                             ErrorType::RuntimeError,
                             self.calc_pos(other),
                         ));
@@ -106,7 +106,7 @@ impl EE {
                     None => {
                         return Err(Error::new(
                             format!(
-                                "failed to subtract {} from {}: value overflowed",
+                                "failed to subtract `{}` from `{}`: value overflowed",
                                 right, left
                             ),
                             ErrorType::RuntimeError,
@@ -128,7 +128,7 @@ impl EE {
                     Some(val) => val,
                     None => {
                         return Err(Error::new(
-                            format!("failed to multiple {} by {}: value overflowed", right, left),
+                            format!("failed to multiple `{}` by `{}`: value overflowed", right, left),
                             ErrorType::RuntimeError,
                             self.calc_pos(other),
                         ));
@@ -160,7 +160,7 @@ impl EE {
                     None => {
                         return Err(Error::new(
                             format!(
-                                "failed to integer divide {} by {}: value overflowed",
+                                "failed to integer divide `{}` by `{}`: value overflowed",
                                 right, left
                             ),
                             ErrorType::RuntimeError,
@@ -174,7 +174,7 @@ impl EE {
                         None => {
                             return Err(Error::new(
                                 format!(
-                                    "failed to integer divide {} by {}: value overflowed",
+                                    "failed to integer divide `{}` by {}: value overflowed",
                                     right, left
                                 ),
                                 ErrorType::RuntimeError,
@@ -198,7 +198,7 @@ impl EE {
                         Err(why) => {
                             return Err(Error::new(
                                 format!(
-                                    "failed to raise {} to the power of {}: {}",
+                                    "failed to raise `{}` to the power of `{}`: {}",
                                     left, right, why
                                 ),
                                 ErrorType::RuntimeError,
@@ -210,7 +210,7 @@ impl EE {
                         None => {
                             return Err(Error::new(
                                 format!(
-                                    "failed to raise {} to the power of {}: value overflowed",
+                                    "failed to raise `{}` to the power of `{}`: value overflowed",
                                     right, left
                                 ),
                                 ErrorType::RuntimeError,
@@ -232,7 +232,7 @@ impl EE {
                 Bool(val) => Bool(!val),
                 _ =>
                     return Err(Error::new(
-                        format!("cannot logically negate {}", self.value.display_type()),
+                        format!("cannot logically negate `{}`", self.value.display_type()),
                         ErrorType::RuntimeError,
                         self.pos
                     )),
@@ -297,7 +297,7 @@ impl EE {
                 Integer(val) => Integer(!val),
                 _ =>
                     return Err(Error::new(
-                        format!("cannot bitwise negate {}", self.value.display_type()),
+                        format!("cannot bitwise negate `{}`", self.value.display_type()),
                         ErrorType::RuntimeError,
                         self.pos
                     )),
@@ -315,7 +315,7 @@ impl EE {
                         Ok(val) => val,
                         Err(why) => {
                             return Err(Error::new(
-                                format!("failed to bitshift {} left {}: {}", left, right, why),
+                                format!("failed to bitshift `{}` left `{}`: {}", left, right, why),
                                 ErrorType::RuntimeError,
                                 self.calc_pos(other),
                             ));
@@ -325,7 +325,7 @@ impl EE {
                         None => {
                             return Err(Error::new(
                                 format!(
-                                    "failed to bitshift {} left by {}: overflowed",
+                                    "failed to bitshift `{}` left by `{}`: overflowed",
                                     left, right
                                 ),
                                 ErrorType::RuntimeError,
@@ -348,7 +348,7 @@ impl EE {
                         Ok(val) => val,
                         Err(why) => {
                             return Err(Error::new(
-                                format!("failed to bitshift {} right {}: {}", left, right, why),
+                                format!("failed to bitshift `{}` right `{}`: {}", left, right, why),
                                 ErrorType::RuntimeError,
                                 self.calc_pos(other),
                             ));
@@ -358,7 +358,7 @@ impl EE {
                         None => {
                             return Err(Error::new(
                                 format!(
-                                    "failed to bitshift {} right by {}: overflowed",
+                                    "failed to bitshift `{}` right by `{}`: overflowed",
                                     left, right
                                 ),
                                 ErrorType::RuntimeError,
@@ -384,7 +384,7 @@ impl EE {
                                 Err(why) =>
                                     return Err(Error::new(
                                         format!(
-                                            "failed to convert {} to {}: {}",
+                                            "failed to convert `{}` to `{}`: {}",
                                             self.value, tok, why
                                         ),
                                         ErrorType::RuntimeError,
@@ -395,7 +395,7 @@ impl EE {
                                 Err(why) =>
                                     return Err(Error::new(
                                         format!(
-                                            "failed to convert {} to {}: {}",
+                                            "failed to convert `{}` to `{}`: {}",
                                             self.value, tok, why
                                         ),
                                         ErrorType::RuntimeError,
@@ -420,7 +420,7 @@ impl EE {
                 },
                 _ => {
                     return Err(Error::new(
-                        format!("invalid type for `as` type operand {}", target_type.expr),
+                        format!("invalid type for `as` type operand `{}`", target_type.expr),
                         ErrorType::TypeError,
                         target_type.pos,
                     ));
@@ -463,6 +463,59 @@ impl EE {
             self.pos
         )
     }
+
+    fn eql(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(Bool(self.value == other.value), self.calc_pos(other))
+    }
+
+    fn neql(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(Bool(self.value != other.value), self.calc_pos(other))
+    }
+
+    fn lt(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(
+            match (&self.value, &other.value) {
+                (Integer(left), Integer(right)) => Bool(left < right),
+                (Float(left), Float(right)) => Bool(left < right),
+                _ => return Err(self.gen_type_err(other, "less than operator")),
+            },
+            self.calc_pos(other)
+        )
+    }
+
+    fn gt(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(
+            match (&self.value, &other.value) {
+                (Integer(left), Integer(right)) => Bool(left > right),
+                (Float(left), Float(right)) => Bool(left > right),
+                _ => return Err(self.gen_type_err(other, "greater than operator")),
+            },
+            self.calc_pos(other)
+        )
+    }
+
+    fn lte(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(
+            match (&self.value, &other.value) {
+                (Integer(left), Integer(right)) => Bool(left <= right),
+                (Float(left), Float(right)) => Bool(left <= right),
+                _ => return Err(self.gen_type_err(other, "less than operator")),
+            },
+            self.calc_pos(other)
+        )
+    }
+
+    fn gte(&self, other: &Self) -> Result<Self, Error> {
+        from_expr!(
+            match (&self.value, &other.value) {
+                (Integer(left), Integer(right)) => Bool(left >= right),
+                (Float(left), Float(right)) => Bool(left >= right),
+                _ => return Err(self.gen_type_err(other, "greater than operator")),
+            },
+            self.calc_pos(other)
+        )
+    }
+
 }
 
 impl fmt::Display for EE {
@@ -475,10 +528,28 @@ pub struct Executer<'a> {
     symbtab: HashMap<&'a str, EE>,
 }
 
+macro_rules! map(
+    { $($key:expr => $value:expr),+ } => {
+        {
+            let mut m = ::std::collections::HashMap::new();
+            $(
+                m.insert($key, EE::new(Float($value), Pos::new(0, 0)));
+            )+
+            m
+        }
+     };
+);
+
+use std::f64::consts;
 impl<'a> Executer<'a> {
     pub(crate) fn new() -> Self {
         Executer {
-            symbtab: HashMap::new(),
+            symbtab: map!(
+                "pi" => consts::PI,
+                "tau" => consts::PI * 2.0,
+                "e" => consts::E,
+                "sqrt2" => consts::SQRT_2
+            ),
         }
     }
 
@@ -492,7 +563,7 @@ impl<'a> Executer<'a> {
                     Ok(val) => val,
                     Err(why) => {
                         return Err(Error::new(
-                            format!("error converting {} to integer: {}", val, why),
+                            format!("error converting `{}` to integer: {}", val, why),
                             ErrorType::RuntimeError,
                             ast.pos,
                         ))
@@ -506,7 +577,7 @@ impl<'a> Executer<'a> {
                     Ok(val) => val,
                     Err(why) => {
                         return Err(Error::new(
-                            format!("error converting {} to float: {}", val, why),
+                            format!("error converting `{}` to float: {}", val, why),
                             ErrorType::RuntimeError,
                             ast.pos,
                         ))
@@ -542,6 +613,14 @@ impl<'a> Executer<'a> {
                 ast::Operator::BAnd => self.eval(*val.left)?.band(&self.eval(*val.right)?)?,
                 ast::Operator::BXor => self.eval(*val.left)?.bxor(&self.eval(*val.right)?)?,
 
+                ast::Operator::NEql => self.eval(*val.left)?.neql(&self.eval(*val.right)?)?,
+                ast::Operator::Eql => self.eval(*val.left)?.eql(&self.eval(*val.right)?)?,
+
+                ast::Operator::LT => self.eval(*val.left)?.lt(&self.eval(*val.right)?)?,
+                ast::Operator::LE => self.eval(*val.left)?.lte(&self.eval(*val.right)?)?,
+                ast::Operator::GT => self.eval(*val.left)?.gt(&self.eval(*val.right)?)?,
+                ast::Operator::GE => self.eval(*val.left)?.gte(&self.eval(*val.right)?)?,
+
                 _ => {
                     return Err(Error::new(
                         format!("infix {} not implemented yet", val.op),
@@ -569,7 +648,7 @@ impl<'a> Executer<'a> {
                 Some(val) => *val,
                 None => {
                     return Err(Error::new(
-                        format!("no variable {} found", val),
+                        format!("no variable `{}` found", val),
                         ErrorType::RuntimeError,
                         ast.pos,
                     ))
