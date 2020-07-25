@@ -1,3 +1,4 @@
+use serenity::async_trait;
 use serenity::http::client::Http;
 use serenity::model::{
     channel::Message,
@@ -14,68 +15,72 @@ impl TypeMapKey for C4ManagerContainer {
     type Value = Arc<RwLock<C4Manager>>;
 }
 
+#[async_trait]
 pub trait C4ManagerTrait {
     fn new_game(&mut self, http_: &Arc<Http>, msg: Message);
-    fn reacted(&mut self, msg: MessageId, pos: usize, user: UserId);
+    async fn reacted(&mut self, msg: MessageId, pos: usize, user: UserId);
 }
 
+#[async_trait]
 impl C4ManagerTrait for C4Manager {
     fn new_game(&mut self, http_: &Arc<Http>, msg: Message) {
         self.insert(msg.id, C4Instance::new(msg, http_));
     }
-    fn reacted(&mut self, msg_id: MessageId, pos: usize, user: UserId) {
+    async fn reacted(&mut self, msg_id: MessageId, pos: usize, user: UserId) {
         if pos > 0 && pos < 8 {
             if let Some(gem) = self.get_mut(&msg_id) {
-                gem.move_coin(pos, user);
+                gem.move_coin(pos, user).await;
             }
         }
     }
 }
 
 pub struct C4Instance {
-    _msg: Message,
+    msg: Message,
     board: Board7By6,
     two_players: PlayersTwo,
     turns: u8,
-    _http: Arc<Http>,
+    http: Arc<Http>,
 }
 
 type PlayersTwo = (UserId, UserId);
 
 impl C4Instance {
-    pub fn new(_msg: Message, http_: &Arc<Http>) -> Self {
+    pub fn new(msg: Message, http_: &Arc<Http>) -> Self {
         C4Instance {
-            _msg,
+            msg,
             board: Board7By6::new(),
             two_players: (UserId(0), UserId(0)),
             turns: 1,
-            _http: Arc::clone(http_),
+            http: Arc::clone(http_),
         }
     }
 
     // Checks validity of player based on turns
-    pub fn move_coin(&mut self, pos: usize, user: UserId) {
+    pub async fn move_coin(&mut self, pos: usize, user: UserId) {
         if self.turns > 2 {
             if user == self.two_players.0 || user == self.two_players.1 {
                 if (self.turns % 2 == 0 && self.two_players.1 == user)
                     || (self.turns % 2 == 1 && self.two_players.0 == user)
                 {
-                    self.coin_drop(pos);
+                    self.coin_drop(pos).await;
                 }
             }
         } else if self.turns == 1 {
             self.two_players.0 = user;
-            self.coin_drop(pos);
+            self.coin_drop(pos).await;
         } else if !(self.two_players.0 == user) {
             self.two_players.1 = user;
-            self.coin_drop(pos);
+            self.coin_drop(pos).await;
         }
     }
     // Checks validity of move
-    fn coin_drop(&mut self, pos: usize) {
+    async fn coin_drop(&mut self, pos: usize) {
         if self.board.coin(self.coin_turn(), pos - 1) {
             println!("Turn: {}", self.turns);
             self.board.dump();
+            let content = self.board.dump_as_str();
+            let _ = self.msg.edit(&self.http, |m| m.content(content)).await;
             self.turns += 1;
         }
     }
