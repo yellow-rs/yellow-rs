@@ -20,7 +20,7 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
     let container = data.get::<C4ManagerContainer>().unwrap();
     let mut c4manager = container.write().await;
 
-    c4manager.new_game(gem);
+    c4manager.new_game(&ctx.http, gem);
 
     Ok(())
 }
