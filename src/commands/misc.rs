@@ -31,6 +31,27 @@ async fn sudo(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[help]
+#[individual_command_tip = "Hello!
+If youd like to get more information about a specific command or group, you can just pass it as a command argument.
+All the command examples through out the help will be shown without prefix, use whatever prefix is configured on the server instead.
+"]
+// This is the text that gets displayed when a given parameter was not found for information.
+#[command_not_found_text = "Could not find: `{}`."]
+// This is the ~~strikethrough~~ text.
+#[strikethrough_commands_tip_in_dm = "~~`Strikethrough commands`~~ are unavailabe because the bot is unable to run them."]
+#[strikethrough_commands_tip_in_guild = "~~`Strikethrough commands`~~ are unavailabe because the bot is unable to run them."]
+// This is the level of similarities between the given argument and possible other arguments.
+// This is used to give suggestions in case of a typo.
+#[max_levenshtein_distance(3)]
+// This makes it so specific sections don't get showed to the user if they don't have the
+// permission to use them.
+#[lacking_permissions = "Hide"]
+// In the case of just lacking a role to use whatever is necessary, nothing will happen when
+// setting it to "Nothing", rn it just strikes the option.
+#[lacking_role = "Hide"]
+// In the case of being on the wrong channel type (either DM for Guild only commands or vicecersa)
+// the command will be ~~striked~~
+#[wrong_channel = "Strike"]
 async fn help(
     context: &Context,
     msg: &Message,
