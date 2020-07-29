@@ -222,7 +222,7 @@ impl EE {
                             return Err(Error::new(
                                 format!(
                                     "failed to raise `{}` to the power of `{}`: value overflowed",
-                                    right, left
+                                    left, right
                                 ),
                                 ErrorType::RuntimeError,
                                 self.calc_pos(other),

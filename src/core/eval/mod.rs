@@ -200,3 +200,23 @@ fn integration_test37() {
     assert!(exec("true < true").is_err());
 }
 
+#[test]
+fn integration_test38() {
+    assert!(exec("120391203918441204981*123212319382148102482948").is_err());
+}
+
+#[test]
+fn integration_test39() {
+    assert!(exec("1230<<123213").is_err());
+}
+
+#[test]
+fn integration_test40() {
+    assert!(exec("170141183460469231731687303715884105726+100").is_err());
+}
+
+#[test]
+fn integration_test41() {
+    assert!(exec("1230>>123213").is_err());
+}
+
