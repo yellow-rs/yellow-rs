@@ -27,7 +27,7 @@ impl TypeMapKey for C4ManagerContainer {
 #[async_trait]
 pub trait C4ManagerTrait {
     fn new_game(&mut self, http_: &Arc<Http>, msg: Message);
-    async unsafe fn reacted(&mut self, msg: MessageId, pos: usize, user: UserId);
+    async fn reacted(&mut self, msg: MessageId, pos: usize, user: UserId);
 }
 
 #[async_trait]
@@ -35,11 +35,13 @@ impl C4ManagerTrait for C4Manager {
     fn new_game(&mut self, http: &Arc<Http>, msg: Message) {
         self.insert(msg.id, C4Instance::new(msg, Arc::clone(&http)));
     }
-    async unsafe fn reacted(&mut self, msg_id: MessageId, pos: usize, user: UserId) {
+    async fn reacted(&mut self, msg_id: MessageId, pos: usize, user: UserId) {
         if pos > 0 && pos < 8 {
             if let Some(gem) = self.get_mut(&msg_id) {
                 if !gem.blocking {
-                    gem.move_coin(pos, user).await;
+                    unsafe {
+                        gem.move_coin(pos, user).await;
+                    }
                 }
             }
         }
@@ -193,7 +195,7 @@ impl C4Instance {
         msg_id
     }
 
-    async fn send_msg(&self, msg_id: &String) {
+    async fn send_msg(&self, _msg_id: &String) {
         let _ = ChannelId(617407223395647520)
             .send_message(&self.http, |m| {
                 m.add_file(AttachmentType::Image("assets/images/board7x6.png"))
@@ -257,7 +259,6 @@ fn canvas_init() -> ImageSurfaceWrapper {
         img_surf: Some(ImageSurface::create_from_png(&mut board).unwrap()),
     }
 }
-//fn draw() {}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CellState {
