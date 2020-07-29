@@ -75,7 +75,6 @@ async fn main() {
         .event_handler(ClientHandler)
         .await
         .expect("");
-
     {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));

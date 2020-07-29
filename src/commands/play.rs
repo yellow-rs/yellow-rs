@@ -9,12 +9,20 @@ use crate::core::game::c4::*;
 #[aliases("c4")]
 #[description("Initializes a Connect 4 session.")]
 async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
-    let gem = msg
+    let mut gem = msg
         .channel_id
         .send_message(&ctx.http, |m| m.content("Initializing"))
         .await?;
 
     add_react(ctx, &gem).await;
+
+    let _ = gem.edit(&ctx.http, |m| m.embed(|e| e
+            .title("Connect4")
+            .description("Awaiting for players")
+            .image("https://cdn.discordapp.com/attachments/605343680047480864/643377529331253248/wallpaper.png")
+            .footer(|f| f.text("Thank you for playing"))
+            .color((255u8, 255u8, 0u8))
+    )).await;
 
     let data = ctx.data.read().await;
     let container = data.get::<C4ManagerContainer>().unwrap();
