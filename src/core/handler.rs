@@ -29,17 +29,18 @@ impl ClientHandler {
             {
                 let first_char = name?.chars().next().unwrap();
                 if first_char.is_digit(10) {
-                    let value = first_char.to_digit(10).unwrap();
-
-                    let data = ctx.data.read().await;
-                    let container_op = data.get::<C4ManagerContainer>()?;
-                    unsafe {
-                        container_op
-                            .write()
-                            .await
-                            .reacted(msg.id, value as usize, add_reaction.user_id)
-                            .await;
-                        let _ = add_reaction.delete(&ctx.http).await;
+                    let value = first_char.to_digit(10).unwrap() as usize;
+                    if value > 0 && value < 8 {
+                        let data = ctx.data.read().await;
+                        let container_op = data.get::<C4ManagerContainer>()?;
+                        unsafe {
+                            container_op
+                                .write()
+                                .await
+                                .reacted(msg.id, value, add_reaction.user_id)
+                                .await;
+                            let _ = add_reaction.delete(&ctx.http).await;
+                        }
                     }
                 }
             }

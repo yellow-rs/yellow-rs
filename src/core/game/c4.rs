@@ -1,4 +1,4 @@
-use cairo::ImageSurface;
+use cairo::{Format, ImageSurface};
 use std::f64::consts::PI;
 use std::fs::File;
 
@@ -36,12 +36,10 @@ impl C4ManagerTrait for C4Manager {
         self.insert(msg.id, C4Instance::new(msg, Arc::clone(&http)));
     }
     async fn reacted(&mut self, msg_id: MessageId, pos: usize, user: UserId) {
-        if pos > 0 && pos < 8 {
-            if let Some(gem) = self.get_mut(&msg_id) {
-                if !gem.blocking {
-                    unsafe {
-                        gem.move_coin(pos, user).await;
-                    }
+        if let Some(gem) = self.get_mut(&msg_id) {
+            if !gem.blocking {
+                unsafe {
+                    gem.move_coin(pos, user).await;
                 }
             }
         }
@@ -49,32 +47,30 @@ impl C4ManagerTrait for C4Manager {
 }
 
 pub struct C4Instance {
-    msg: Message,     // Message to manipulate
-    http: Arc<Http>,  // Http object to interact with message
-    board: Board7By6, // Board data wrapper
-    _board_canvas: ImageSurfaceWrapper,
-    two_players: PlayersTwo,
+    msg: Message,          // Message to manipulate
+    http: Arc<Http>,       // Http object to interact with message
+    board_data: Board7By6, // Board data wrapper
+    board_canvas: ImageSurfaceWrapper,
+    players_pair: [User; 2],
+    avatars: [ImageSurfaceWrapper; 2],
     turns: u8,
-    blocking: bool, // Block incoming input to prevent clashing operations
-    avatars: (ImageSurfaceWrapper, ImageSurfaceWrapper),
+    blocking: bool, // Block incoming input to prevent choking operations
 }
-
-type PlayersTwo = (User, User);
 
 impl C4Instance {
     pub fn new(msg: Message, http: Arc<Http>) -> Self {
         C4Instance {
             msg,
             http,
-            board: Board7By6::new(),
-            _board_canvas: canvas_init(),
-            two_players: (User::default(), User::default()),
+            board_data: Board7By6::new(),
+            board_canvas: canvas_init(),
+            players_pair: [User::default(), User::default()],
+            avatars: [
+                ImageSurfaceWrapper::default(),
+                ImageSurfaceWrapper::default(),
+            ],
             turns: 1,
             blocking: false,
-            avatars: (
-                ImageSurfaceWrapper::default(),
-                ImageSurfaceWrapper::default(),
-            ),
         }
     }
 
@@ -90,56 +86,25 @@ impl C4Instance {
             }
             self.coin_drop(pos).await;
         } else if self.turns == 1 {
-            self.two_players.0 = self.http.get_user(user.0).await.unwrap();
-
-            let avatar_url = self
-                .two_players
-                .0
-                .face()
-                .replace(".webp?size=1024", ".png?size=128");
-            println!("avatar url: {}", avatar_url);
-            let res = reqwest::get(&avatar_url)
-                .await
-                .expect("Failed")
-                .bytes()
-                .await
-                .expect("");
-
-            self.avatars.0 = ImageSurfaceWrapper {
-                img_surf: Some(ImageSurface::create_from_png(&mut res.reader()).unwrap()),
-            };
+            // Get User
+            self.players_pair[0] = self.http.get_user(user.0).await.unwrap();
+            self.grab_user_avatar(0).await;
             self.coin_drop(pos).await;
         } else
         /* if !(self.two_players.0 == user)*/
         {
-            self.two_players.1 = self.http.get_user(user.0).await.unwrap();
-
-            let avatar_url = self
-                .two_players
-                .1
-                .face()
-                .replace(".webp?size=1024", ".png?size=128");
-            println!("avatar url: {}", avatar_url);
-            let res = reqwest::get(&avatar_url)
-                .await
-                .expect("Failed")
-                .bytes()
-                .await
-                .expect("");
-
-            self.avatars.1 = ImageSurfaceWrapper {
-                img_surf: Some(ImageSurface::create_from_png(&mut res.reader()).unwrap()),
-            };
+            self.players_pair[1] = self.http.get_user(user.0).await.unwrap();
+            self.avatars[1] = self.grab_user_avatar(1).await;
             self.coin_drop(pos).await;
         }
     }
     // Checks validity of move
     async fn coin_drop(&mut self, pos: usize) {
-        if self.board.coin(self.coin_turn(), pos - 1) {
+        if self.board_data.coin(self.coin_turn(), pos - 1) {
             self.blocking = true;
             println!("Turn: {}", self.turns);
 
-            let content = self.board.dump();
+            let content = self.board_data.dump();
             self.msg
                 .edit(&self.http, |m| m.content(content))
                 .await
@@ -160,7 +125,7 @@ impl C4Instance {
     }
 
     fn update_canvas(&mut self) -> String {
-        let board = self._board_canvas.img_surf.clone().unwrap();
+        let board = self.board_canvas.0.clone();
         let ctx = cairo::Context::new(&board);
 
         ctx.set_source_rgb(1.0, 1.0, 0.0);
@@ -169,15 +134,15 @@ impl C4Instance {
         ctx.close_path();
         ctx.clip();
 
-        let avatar = self.avatars.0.img_surf.clone().unwrap();
+        let avatar = self.avatars[0].clone();
 
-        let ctx_ava = cairo::Context::new(&avatar);
+        let ctx_ava = cairo::Context::new(&avatar.0);
         ctx_ava.save();
 
         ctx.set_source_surface(
             &ctx_ava.get_target(),
-            29.0 - avatar.get_width() as f64 / 2.0,
-            25.0 - avatar.get_height() as f64 / 2.0,
+            29.0 - avatar.0.get_width() as f64 / 2.0,
+            25.0 - avatar.0.get_height() as f64 / 2.0,
         );
 
         let msg_id = format!("{}.png", self.msg.id.0);
@@ -188,9 +153,7 @@ impl C4Instance {
             .write_to_png(&mut file)
             .expect("Couldn’t write to png");
 
-        self._board_canvas = ImageSurfaceWrapper {
-            img_surf: Some(board),
-        };
+        self.board_canvas = ImageSurfaceWrapper(board);
 
         msg_id
     }
@@ -201,6 +164,22 @@ impl C4Instance {
                 m.add_file(AttachmentType::Image("assets/images/board7x6.png"))
             })
             .await;
+    }
+
+    async fn grab_user_avatar(&mut self, player: usize) -> ImageSurfaceWrapper {
+        let avatar_url = self.players_pair[player]
+            .face()
+            .replace(".webp?size=1024", ".png?size=128");
+
+        println!("avatar url: {}", avatar_url);
+        let res = reqwest::get(&avatar_url)
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+
+        ImageSurfaceWrapper(ImageSurface::create_from_png(&mut res.reader()).unwrap())
     }
 }
 
@@ -238,31 +217,25 @@ impl BoardPlayable for Board7By6 {
         result
     }
 }
-
-#[derive(Debug)]
-struct ImageSurfaceWrapper {
-    img_surf: Option<ImageSurface>,
-}
-
-impl Default for ImageSurfaceWrapper {
-    fn default() -> Self {
-        ImageSurfaceWrapper { img_surf: None }
-    }
-}
-
-unsafe impl Send for ImageSurfaceWrapper {}
-unsafe impl Sync for ImageSurfaceWrapper {}
-
-fn canvas_init() -> ImageSurfaceWrapper {
-    let mut board = File::open("assets/images/board7x6.png").unwrap();
-    ImageSurfaceWrapper {
-        img_surf: Some(ImageSurface::create_from_png(&mut board).unwrap()),
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CellState {
     Vacant,
     One,
     Two,
+}
+
+#[derive(Debug, Clone)]
+struct ImageSurfaceWrapper(ImageSurface);
+unsafe impl Send for ImageSurfaceWrapper {}
+unsafe impl Sync for ImageSurfaceWrapper {}
+
+fn canvas_init() -> ImageSurfaceWrapper {
+    let mut board = File::open("assets/images/board7x6.png").unwrap();
+    ImageSurfaceWrapper(ImageSurface::create_from_png(&mut board).unwrap())
+}
+
+impl Default for ImageSurfaceWrapper {
+    fn default() -> Self {
+        Self(ImageSurface::create(Format::ARgb32, 1, 1).unwrap())
+    }
 }
