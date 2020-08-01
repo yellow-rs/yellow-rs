@@ -1,6 +1,4 @@
 use cairo::{Format, ImageSurface};
-use std::f64::consts::PI;
-use std::fs::File;
 
 use serenity::{
     async_trait,
@@ -12,14 +10,13 @@ use serenity::{
     },
     prelude::{RwLock, TypeMapKey},
 };
+use std::{collections::HashMap, f64::consts::PI, sync::Arc};
 
 use bytes::buf::BufExt;
-use std::{collections::HashMap, sync::Arc};
-
-pub struct C4ManagerContainer;
 
 pub type C4Manager = HashMap<MessageId, C4Instance>;
 
+pub struct C4ManagerContainer;
 impl TypeMapKey for C4ManagerContainer {
     type Value = Arc<RwLock<C4Manager>>;
 }
@@ -88,7 +85,7 @@ impl C4Instance {
         } else if self.turns == 1 {
             // Get User
             self.players_pair[0] = self.http.get_user(user.0).await.unwrap();
-            self.grab_user_avatar(0).await;
+            self.avatars[0] = self.grab_user_avatar(0).await;
             self.coin_drop(pos).await;
         } else
         /* if !(self.two_players.0 == user)*/
@@ -100,19 +97,14 @@ impl C4Instance {
     }
     // Checks validity of move
     async fn coin_drop(&mut self, pos: usize) {
-        if self.board_data.coin(self.coin_turn(), pos - 1) {
+        if let Some([col, row]) = self.board_data.coin(self.coin_turn(), pos - 1) {
             self.blocking = true;
-            println!("Turn: {}", self.turns);
-
-            let content = self.board_data.dump();
-            self.msg
-                .edit(&self.http, |m| m.content(content))
-                .await
-                .unwrap();
             self.turns += 1;
 
-            let msg_send = self.update_canvas();
-            self.send_msg(&msg_send).await;
+            let msg_send = self.update_canvas([col, row]).await;
+            let file = tokio::fs::File::open(&msg_send).await.unwrap();
+            self.send_msg(&file).await;
+
             self.blocking = false;
         }
     }
@@ -124,30 +116,35 @@ impl C4Instance {
         }
     }
 
-    fn update_canvas(&mut self) -> String {
+    async fn update_canvas(&mut self, pos: [usize; 2]) -> String {
+        const COLUMN: [f64; 7] = [29., 79., 128., 177., 226., 276., 326.];
+        const ROW: [f64; 6] = [25., 70., 114., 157., 201., 246.];
+
         let board = self.board_canvas.0.clone();
         let ctx = cairo::Context::new(&board);
 
-        ctx.set_source_rgb(1.0, 1.0, 0.0);
         ctx.new_path();
-        ctx.arc(29.0, 25.0, 22.0, 0.0, PI * 2.0);
+        ctx.arc(
+            COLUMN[pos[0]],
+            ROW[pos[1]],
+            /*22.0*/ 30.0,
+            0.0,
+            PI * 2.0,
+        );
         ctx.close_path();
         ctx.clip();
 
-        let avatar = self.avatars[0].clone();
-
-        let ctx_ava = cairo::Context::new(&avatar.0);
-        ctx_ava.save();
-
+        let avatar = self.avatars[(self.turns % 2) as usize].clone();
         ctx.set_source_surface(
-            &ctx_ava.get_target(),
-            29.0 - avatar.0.get_width() as f64 / 2.0,
-            25.0 - avatar.0.get_height() as f64 / 2.0,
+            &avatar.0,
+            COLUMN[pos[0]] - avatar.0.get_width() as f64 / 2.0,
+            ROW[pos[1]] - avatar.0.get_height() as f64 / 2.0,
         );
 
-        let msg_id = format!("{}.png", self.msg.id.0);
         ctx.paint();
-        let mut file = File::create(&msg_id).expect("Couldn't create file.");
+
+        let msg_id = format!("{}.png", self.msg.id.0);
+        let mut file = std::fs::File::create(&msg_id).expect("Couldn't create file.");
 
         board
             .write_to_png(&mut file)
@@ -158,12 +155,18 @@ impl C4Instance {
         msg_id
     }
 
-    async fn send_msg(&self, _msg_id: &String) {
+    async fn send_msg(&self, file: &tokio::fs::File) {
         let _ = ChannelId(617407223395647520)
-            .send_message(&self.http, |m| {
-                m.add_file(AttachmentType::Image("assets/images/board7x6.png"))
+            .send_message(&self.http, move |m| {
+                m.content(self.msg.id.0).add_file(AttachmentType::File {
+                    file,
+                    filename: "any.png".to_string(),
+                })
             })
             .await;
+        tokio::fs::remove_file(format!("{}.png", self.msg.id.0))
+            .await
+            .unwrap();
     }
 
     async fn grab_user_avatar(&mut self, player: usize) -> ImageSurfaceWrapper {
@@ -171,7 +174,6 @@ impl C4Instance {
             .face()
             .replace(".webp?size=1024", ".png?size=128");
 
-        println!("avatar url: {}", avatar_url);
         let res = reqwest::get(&avatar_url)
             .await
             .unwrap()
@@ -181,11 +183,35 @@ impl C4Instance {
 
         ImageSurfaceWrapper(ImageSurface::create_from_png(&mut res.reader()).unwrap())
     }
+
+    pub async fn update_game(&mut self, img_link: String) {
+        let turn: String;
+        if self.turns > 2 {
+            if self.turns % 2 == 0 {
+                turn = format!("{}'s turn!", self.players_pair[1].name);
+            } else {
+                turn = format!("{}'s turn!", self.players_pair[0].name);
+            }
+        } else {
+            turn = "Awaiting for players".to_string();
+        }
+        let _ = self
+            .msg
+            .edit(&self.http, |m| {
+                m.embed(|e| {
+                    e.title("Connect4")
+                        .description(turn)
+                        .url(&img_link)
+                        .image(img_link)
+                })
+            })
+            .await;
+    }
 }
 
 trait BoardPlayable {
     fn new() -> Self;
-    fn coin(&mut self, new_coin: CellState, pos: usize) -> bool;
+    fn coin(&mut self, new_coin: CellState, pos: usize) -> Option<[usize; 2]>;
     fn dump(&self) -> String;
 }
 
@@ -195,14 +221,14 @@ impl BoardPlayable for Board7By6 {
     fn new() -> Self {
         [[CellState::Vacant; 7]; 6]
     }
-    fn coin(&mut self, new_coin: CellState, pos: usize) -> bool {
+    fn coin(&mut self, new_coin: CellState, pos: usize) -> Option<[usize; 2]> {
         for i in (0..6).rev() {
             if self[i][pos] == CellState::Vacant {
                 self[i][pos] = new_coin;
-                return true;
+                return Some([pos, i]);
             }
         }
-        false
+        None
     }
     fn dump(&self) -> String {
         let mut result = String::new();
@@ -213,7 +239,6 @@ impl BoardPlayable for Board7By6 {
             result.push('\n');
         }
         result.push('\n');
-        println!("{}", result);
         result
     }
 }
@@ -230,12 +255,12 @@ unsafe impl Send for ImageSurfaceWrapper {}
 unsafe impl Sync for ImageSurfaceWrapper {}
 
 fn canvas_init() -> ImageSurfaceWrapper {
-    let mut board = File::open("assets/images/board7x6.png").unwrap();
+    let mut board = std::fs::File::open("assets/images/board7x6.png").unwrap();
     ImageSurfaceWrapper(ImageSurface::create_from_png(&mut board).unwrap())
 }
 
 impl Default for ImageSurfaceWrapper {
     fn default() -> Self {
-        Self(ImageSurface::create(Format::ARgb32, 1, 1).unwrap())
+        Self(ImageSurface::create(Format::Rgb30, 128, 128).unwrap())
     }
 }

@@ -11,7 +11,9 @@ use crate::core::game::c4::*;
 async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
     let mut gem = msg
         .channel_id
-        .send_message(&ctx.http, |m| m.content("Initializing"))
+        .send_message(&ctx.http, |m| {
+            m.content("Initializing <a:loading:617628744512700447>")
+        })
         .await?;
 
     add_react(ctx, &gem).await;
@@ -22,7 +24,7 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
             .image("https://cdn.discordapp.com/attachments/605343680047480864/643377529331253248/wallpaper.png")
             .footer(|f| f.text("Thank you for playing"))
             .color((255u8, 255u8, 0u8))
-    )).await;
+    ).content(" ͔")).await;
 
     let data = ctx.data.read().await;
     let container = data.get::<C4ManagerContainer>().unwrap();

@@ -4,9 +4,10 @@ use serenity::{
     async_trait,
     client::Context,
     model::{
-        channel::{Reaction, ReactionType},
+        channel::{Message, Reaction, ReactionType},
         event::ResumedEvent,
         gateway::Ready,
+        id::{ChannelId, MessageId},
     },
     prelude::*,
 };
@@ -14,6 +15,20 @@ use serenity::{
 pub struct ClientHandler;
 
 impl ClientHandler {
+    async fn message_add_internal(&self, ctx: Context, new_message: Message) -> Option<()> {
+        if new_message.channel_id == ChannelId(617407223395647520) {
+            let num = MessageId(new_message.content.parse::<u64>().unwrap());
+
+            let data = ctx.data.read().await;
+            let container_op = data.get::<C4ManagerContainer>()?;
+            let mut write = container_op.write().await;
+            if let Some(gem) = write.get_mut(&num) {
+                gem.update_game(new_message.attachments[0].url.clone())
+                    .await;
+            }
+        }
+        None
+    }
     async fn reaction_add_internal(&self, ctx: Context, add_reaction: Reaction) -> Option<()> {
         let msg = &ctx
             .cache
@@ -60,5 +75,8 @@ impl EventHandler for ClientHandler {
 
     async fn reaction_add(&self, ctx: Context, add_reaction: Reaction) {
         let _ = self.reaction_add_internal(ctx, add_reaction).await;
+    }
+    async fn message(&self, ctx: Context, new_message: Message) {
+        let _ = self.message_add_internal(ctx, new_message).await;
     }
 }
