@@ -19,12 +19,12 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
     add_react(ctx, &gem).await;
 
     let _ = gem.edit(&ctx.http, |m| m.embed(|e| e
-            .title("Connect4")
-            .description("Awaiting for players")
-            .image("https://cdn.discordapp.com/attachments/605343680047480864/643377529331253248/wallpaper.png")
-            .footer(|f| f.text("Thank you for playing"))
-            .color((255u8, 255u8, 0u8))
-    ).content(" ͔")).await;
+            .title("Connect Four™")
+            .field("New Player's turn!", "React to position your coin", false)
+            .image("https://cdn.discordapp.com/attachments/605343680047480864/739051304256536576/board7x6.png")
+            .url("https://cdn.discordapp.com/attachments/605343680047480864/739051304256536576/board7x6.png")
+            .footer(|f| f.text("| Report bugs | Version 1"))
+    ).content("​")).await;
 
     let data = ctx.data.read().await;
     let container = data.get::<C4ManagerContainer>().unwrap();

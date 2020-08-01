@@ -117,15 +117,18 @@ impl C4Instance {
     }
 
     async fn update_canvas(&mut self, pos: [usize; 2]) -> String {
-        const COLUMN: [f64; 7] = [29., 75., 120., 166., 212.5, 259., 308.];
+        const COLUMN: [f64; 7] = [39., 104., 169., 234., 300., 365., 430.];
+        //const COLUMN: [f64; 7] = [28.73, 74.76, 120., 166.30, 213.5, 259.30, 308.];
         //const COLUMN: [f64; 7] = [29., 79., 128., 177., 226., 276., 326.];
-        const ROW: [f64; 6] = [25., 70., 114., 157., 201., 246.];
 
+        const ROW: [f64; 6] = [32., 95., 157., 219., 282., 345.];
+        //const ROW: [f64; 6] = [25., 70., 114., 157., 201., 246.];
         let board = self.board_canvas.0.clone();
         let ctx = cairo::Context::new(&board);
 
         ctx.new_path();
-        ctx.arc(COLUMN[pos[0]], ROW[pos[1]], 22.0, 0.0, PI * 2.0);
+        // 21
+        ctx.arc(COLUMN[pos[0]], ROW[pos[1]], 31.75, 0.0, PI * 2.0);
         ctx.close_path();
         ctx.clip();
 
@@ -167,7 +170,7 @@ impl C4Instance {
     async fn grab_user_avatar(&mut self, player: usize) -> ImageSurfaceWrapper {
         let avatar_url = self.players_pair[player]
             .face()
-            .replace(".webp?size=1024", ".png?size=128");
+            .replace(".webp?size=1024", ".png?size=64");
 
         let res = reqwest::get(&avatar_url)
             .await
@@ -188,14 +191,14 @@ impl C4Instance {
                 turn = format!("{}'s turn!", self.players_pair[0].name);
             }
         } else {
-            turn = "Awaiting for players".to_string();
+            turn = "New Player's Turn!".to_string();
         }
         let _ = self
             .msg
             .edit(&self.http, |m| {
                 m.embed(|e| {
-                    e.title("Connect4")
-                        .description(turn)
+                    e.title("Connect Four™")
+                        .field(turn, "React to position your coin", false)
                         .url(&img_link)
                         .image(img_link)
                 })
