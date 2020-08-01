@@ -117,20 +117,15 @@ impl C4Instance {
     }
 
     async fn update_canvas(&mut self, pos: [usize; 2]) -> String {
-        const COLUMN: [f64; 7] = [29., 79., 128., 177., 226., 276., 326.];
+        const COLUMN: [f64; 7] = [29., 75., 120., 166., 212.5, 259., 308.];
+        //const COLUMN: [f64; 7] = [29., 79., 128., 177., 226., 276., 326.];
         const ROW: [f64; 6] = [25., 70., 114., 157., 201., 246.];
 
         let board = self.board_canvas.0.clone();
         let ctx = cairo::Context::new(&board);
 
         ctx.new_path();
-        ctx.arc(
-            COLUMN[pos[0]],
-            ROW[pos[1]],
-            /*22.0*/ 30.0,
-            0.0,
-            PI * 2.0,
-        );
+        ctx.arc(COLUMN[pos[0]], ROW[pos[1]], 22.0, 0.0, PI * 2.0);
         ctx.close_path();
         ctx.clip();
 
