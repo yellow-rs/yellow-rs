@@ -52,6 +52,7 @@ pub struct C4Instance {
     avatars: [ImageSurfaceWrapper; 2],
     turns: u8,
     blocking: bool, // Block incoming input to prevent choking operations
+    raw: Vec<u8>,
 }
 
 impl C4Instance {
@@ -68,15 +69,16 @@ impl C4Instance {
             ],
             turns: 1,
             blocking: false,
+            raw: vec![],
         }
     }
 
     // Checks validity of player based on turns
     pub async unsafe fn move_coin(&mut self, pos: usize, user: UserId) {
         if self.turns > 2
-        /*&& ((user == self.two_players.0 || user == self.two_players.1)
-        && ((self.turns % 2 == 0 && self.two_players.1 == user)
-            || (self.turns % 2 == 1 && self.two_players.0 == user))) */
+        /*&& ((user == self.players_pair[0].id || user == self.players_pair[1].id)
+        && ((self.turns % 2 == 0 && self.players_pair[1].id == user)
+            || (self.turns % 2 == 1 && self.players_pair[0].id == user)))*/
         {
             if self.turns == 42 {
                 let _ = self.msg.delete_reactions(&self.http).await;
@@ -88,7 +90,7 @@ impl C4Instance {
             self.avatars[0] = self.grab_user_avatar(0).await;
             self.coin_drop(pos).await;
         } else
-        /* if !(self.two_players.0 == user)*/
+        /*if !(self.players_pair[0].id == user) */
         {
             self.players_pair[1] = self.http.get_user(user.0).await.unwrap();
             self.avatars[1] = self.grab_user_avatar(1).await;
@@ -101,9 +103,8 @@ impl C4Instance {
             self.blocking = true;
             self.turns += 1;
 
-            let msg_send = self.update_canvas([col, row]).await;
-            let file = tokio::fs::File::open(&msg_send).await.unwrap();
-            self.send_msg(&file).await;
+            self.update_canvas([col, row]).await;
+            self.send_msg().await;
 
             self.blocking = false;
         }
@@ -116,55 +117,31 @@ impl C4Instance {
         }
     }
 
-    async fn update_canvas(&mut self, pos: [usize; 2]) -> String {
+    async fn update_canvas(&mut self, pos: [usize; 2]) {
         const COLUMN: [f64; 7] = [39., 104., 169., 234., 300., 365., 430.];
-        //const COLUMN: [f64; 7] = [28.73, 74.76, 120., 166.30, 213.5, 259.30, 308.];
-        //const COLUMN: [f64; 7] = [29., 79., 128., 177., 226., 276., 326.];
-
         const ROW: [f64; 6] = [32., 95., 157., 219., 282., 345.];
-        //const ROW: [f64; 6] = [25., 70., 114., 157., 201., 246.];
-        let board = self.board_canvas.0.clone();
-        let ctx = cairo::Context::new(&board);
 
+        let ctx = cairo::Context::new(&mut self.board_canvas.0);
         ctx.new_path();
-        // 21
         ctx.arc(COLUMN[pos[0]], ROW[pos[1]], 31.75, 0.0, PI * 2.0);
         ctx.close_path();
         ctx.clip();
 
-        let avatar = self.avatars[(self.turns % 2) as usize].clone();
         ctx.set_source_surface(
-            &avatar.0,
-            COLUMN[pos[0]] - avatar.0.get_width() as f64 / 2.0,
-            ROW[pos[1]] - avatar.0.get_height() as f64 / 2.0,
+            &self.avatars[(self.turns % 2) as usize].0,
+            COLUMN[pos[0]] - 32.,
+            ROW[pos[1]] - 32.,
         );
 
         ctx.paint();
 
-        let msg_id = format!("{}.png", self.msg.id.0);
-        let mut file = std::fs::File::create(&msg_id).expect("Couldn't create file.");
-
-        board
-            .write_to_png(&mut file)
+        self.board_canvas
+            .0
+            .write_to_png(&mut self.raw)
             .expect("Couldn’t write to png");
 
-        self.board_canvas = ImageSurfaceWrapper(board);
-
-        msg_id
-    }
-
-    async fn send_msg(&self, file: &tokio::fs::File) {
-        let _ = ChannelId(617407223395647520)
-            .send_message(&self.http, move |m| {
-                m.content(self.msg.id.0).add_file(AttachmentType::File {
-                    file,
-                    filename: "any.png".to_string(),
-                })
-            })
-            .await;
-        tokio::fs::remove_file(format!("{}.png", self.msg.id.0))
-            .await
-            .unwrap();
+        self.board_canvas.0 =
+            ImageSurface::create_from_png(&mut self.raw.reader()).expect("Couldn't return png");
     }
 
     async fn grab_user_avatar(&mut self, player: usize) -> ImageSurfaceWrapper {
@@ -181,7 +158,16 @@ impl C4Instance {
 
         ImageSurfaceWrapper(ImageSurface::create_from_png(&mut res.reader()).unwrap())
     }
-
+    async fn send_msg(&self) {
+        let _ = ChannelId(617407223395647520)
+            .send_message(&self.http, |m| {
+                m.content(self.msg.id.0).add_file(AttachmentType::Bytes {
+                    data: std::borrow::Cow::Borrowed(self.raw.as_slice()),
+                    filename: "*.png".to_string(),
+                })
+            })
+            .await;
+    }
     pub async fn update_game(&mut self, img_link: String) {
         let turn: String;
         if self.turns > 2 {

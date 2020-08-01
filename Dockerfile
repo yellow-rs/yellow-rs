@@ -1,5 +1,8 @@
-FROM rust
+FROM rust:1.45
 
-COPY yellow-rs /bin/yellow-rs
+WORKDIR /home/aura/Workspace/Yellow-rs
+COPY . .
 
-CMD ["/bin/yellow-rs"]
+RUN cargo install --path .
+
+CMD ["cargo", "run", "--release"]
