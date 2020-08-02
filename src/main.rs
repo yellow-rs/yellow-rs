@@ -62,7 +62,7 @@ async fn main() {
             StandardFramework::new()
                 .configure(|c| {
                     c.owners(owners)
-                        .prefix("|")
+                        .prefix("/")
                         .no_dm_prefix(true)
                         .case_insensitivity(true)
                 })
