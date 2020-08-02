@@ -1,5 +1,5 @@
-FROM rust
-
-COPY yellow-rs /bin/yellow-rs
-
-CMD ["/bin/yellow-rs"]
+FROM rust:1.45
+WORKDIR .
+COPY . .
+RUN cargo install --path .
+CMD ["cargo", "run", "--release"]
