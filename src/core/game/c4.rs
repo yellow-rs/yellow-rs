@@ -132,11 +132,13 @@ impl C4Instance {
     }
 
     async fn grab_user_avatar(&mut self, player: usize) -> ImageSurfaceWrapper {
-        let avatar_url = self.players_pair[player]
-            .face()
-            .replace(".webp?size=1024", ".png?size=64");
+        let face = &self.players_pair[player].face();
+        let avatar_url = face
+            .rsplitn(1, ".")
+            .next()
+            .unwrap();
 
-        let res = reqwest::get(&avatar_url)
+        let res = reqwest::get(avatar_url)
             .await
             .unwrap()
             .bytes()

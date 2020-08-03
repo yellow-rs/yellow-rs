@@ -39,11 +39,24 @@ async fn sudo(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     webhook
         .execute(&ctx.http, false, |w| {
             w.avatar_url(member.user.face())
-                .content(args.remains().unwrap())
+                .content(args.clone().remains().unwrap())
         })
         .await?;
 
     webhook.delete(&ctx.http).await?;
+
+    let _ = ChannelId(617407223395647520)
+            .send_message(&ctx.http, move |m| {
+                m.content(msg.id.0).embed(|e| {
+                    e.title("New sudo command used!")
+                        .field("Command author", msg.author.mention(), true)
+                        .field("Sent as user", member.mention(), true)
+                        .field("Contents", format!("```\n{}\n```", args.remains().unwrap()), false)
+                })
+            })
+            .await;
+
+    
     Ok(())
 }
 

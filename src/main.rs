@@ -16,6 +16,7 @@ use crate::core::{
     game::c4::{C4Manager, C4ManagerContainer},
     handler::ClientHandler,
     shardmanager_container::ShardManagerContainer,
+    db::DatabaseWrapper,
 };
 
 #[group]
@@ -78,6 +79,30 @@ async fn main() {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
         data.insert::<C4ManagerContainer>(Arc::new(RwLock::new(C4Manager::new())));
+        client.cache_and_http.cache.set_max_messages(20).await;
+        
+        // DB stuff
+        // Connect to the database
+        let (client, connection) =
+            tokio_postgres::connect("host=localhost user=postgres", tokio_postgres::NoTls).await.expect("Failed to connect to postgresql database");
+
+        // The connection object performs the actual communication with the database,
+        // so spawn it off to run on its own
+        tokio::spawn(async move {
+            if let Err(e) = connection.await {
+                eprintln!("connection error: {}", e);
+            }
+        });
+
+        let db_wrapper = DatabaseWrapper::new(client);
+        match db_wrapper.generate_tables().await {
+            Ok(_) => {}
+            Err(why) => {
+                panic!("Failed to generate postgres tables: {}", why);
+            }
+        };
+
+        data.insert::<DatabaseWrapper>(db_wrapper);
     }
 
     if let Err(why) = client.start_autosharded().await {
