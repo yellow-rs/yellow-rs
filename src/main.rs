@@ -37,7 +37,6 @@ struct Play;
 #[tokio::main]
 async fn main() {
     /* Load env variables located at `./.env` relative to CWD*/
-    /* Comment this line when deployed in Heroku */
     kankyo::load().expect("Failed to load .env file");
 
     /* Initialize logger based `RUST_LOG` from environment*/
@@ -79,7 +78,6 @@ async fn main() {
         let mut data = client.data.write().await;
         data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
         data.insert::<C4ManagerContainer>(Arc::new(RwLock::new(C4Manager::new())));
-        client.cache_and_http.cache.set_max_messages(20).await;
     }
 
     if let Err(why) = client.start_autosharded().await {

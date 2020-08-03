@@ -31,9 +31,10 @@ impl ClientHandler {
     }
     async fn reaction_add_internal(&self, ctx: Context, add_reaction: Reaction) -> Option<()> {
         let msg = &ctx
-            .cache
-            .message(add_reaction.channel_id, add_reaction.message_id)
-            .await?;
+            .http
+            .get_message(add_reaction.channel_id.0, add_reaction.message_id.0)
+            .await
+            .expect(&format!("Message {} not found", add_reaction.message_id));
 
         if msg.is_own(&ctx.cache).await && add_reaction.user_id != msg.author.id {
             if let ReactionType::Custom {
