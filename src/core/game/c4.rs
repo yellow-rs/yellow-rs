@@ -134,10 +134,10 @@ impl C4Instance {
     async fn grab_user_avatar(&mut self, player: usize) -> ImageSurfaceWrapper {
         let face = &self.players_pair[player].face();
         let avatar_url = format!(
-            "{}.png?size=128",
+            "{}.png?size=64",
             face
             .rsplitn(2, ".")
-            .next()
+            .nth(1)
             .unwrap()
         );
 
