@@ -1,20 +1,36 @@
+use crate::core::utils::parse_member::*;
 use serde_json::json;
 use serenity::framework::standard::{
     help_commands,
     macros::{command, help},
     Args, CommandGroup, CommandResult, HelpOptions,
 };
+use serenity::http::client::Http;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
 use std::collections::HashSet;
 
 #[command]
+#[min_args(2)]
 #[only_in(guilds)]
 #[description("Sends a message on behalf of a user.")]
-async fn sudo(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+async fn sudo(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     msg.delete(&ctx.http).await?;
-    let name = " ͔".to_owned() + &msg.author.name;
+
+    let mem = args
+        .single_quoted::<String>()
+        .unwrap_or_else(|_| msg.author.mention());
+
+    let backup = &ctx
+        .http
+        .get_member(msg.guild_id.unwrap().0, msg.author.id.0)
+        .await
+        .unwrap();
+    let member = parse_member(ctx, msg.clone(), mem)
+        .await
+        .unwrap_or_else(move |_| backup.clone());
+    let name = " ͔".to_owned() + &member.display_name();
     let webhook = &ctx
         .http
         .create_webhook(msg.channel_id.0, &json!({ "name": name }))
@@ -22,7 +38,8 @@ async fn sudo(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 
     webhook
         .execute(&ctx.http, false, |w| {
-            w.avatar_url(msg.author.face()).content(args.rest())
+            w.avatar_url(member.user.face())
+                .content(args.remains().unwrap())
         })
         .await?;
 
