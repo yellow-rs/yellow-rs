@@ -62,12 +62,12 @@ impl C4Instance {
             self.avatars[0] = self.grab_user_avatar(0).await;
             self.coin_drop(pos).await;
         } else
-        /* if !(self.two_players.0 == user)*/
-        {
-            self.players_pair[1] = self.http.get_user(user.0).await.unwrap();
-            self.avatars[1] = self.grab_user_avatar(1).await;
-            self.coin_drop(pos).await;
-        }
+            /* if !(self.two_players.0 == user)*/
+            {
+                self.players_pair[1] = self.http.get_user(user.0).await.unwrap();
+                self.avatars[1] = self.grab_user_avatar(1).await;
+                self.coin_drop(pos).await;
+            }
     }
     // Checks validity of move
     async fn coin_drop(&mut self, pos: usize) {
@@ -125,7 +125,7 @@ impl C4Instance {
                     filename: "any.png".to_string(),
                 })
             })
-            .await;
+        .await;
         tokio::fs::remove_file(format!("{}.png", self.msg.id.0))
             .await
             .unwrap();
@@ -133,12 +133,15 @@ impl C4Instance {
 
     async fn grab_user_avatar(&mut self, player: usize) -> ImageSurfaceWrapper {
         let face = &self.players_pair[player].face();
-        let avatar_url = face
-            .rsplitn(1, ".")
+        let avatar_url = format!(
+            "{}.png?size=128",
+            face
+            .rsplitn(2, ".")
             .next()
-            .unwrap();
+            .unwrap()
+        );
 
-        let res = reqwest::get(avatar_url)
+        let res = reqwest::get(&avatar_url)
             .await
             .unwrap()
             .bytes()
@@ -172,8 +175,8 @@ impl C4Instance {
                         .footer(|f| f.text("| Report bugs | Version 0.1 |"))
                 })
             })
-            .await;
-    }
+        .await;
+        }
 }
 
 trait BoardPlayable {
