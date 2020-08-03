@@ -1,7 +1,6 @@
 use cairo::{Format, ImageSurface};
 
 use serenity::{
-    async_trait,
     http::{client::Http, AttachmentType},
     model::{
         channel::Message,
@@ -14,33 +13,11 @@ use std::{collections::HashMap, f64::consts::PI, sync::Arc};
 
 use bytes::buf::BufExt;
 
-pub type C4Manager = HashMap<MessageId, C4Instance>;
+pub type C4Manager = HashMap<MessageId, Arc<RwLock<C4Instance>>>;
 
 pub struct C4ManagerContainer;
 impl TypeMapKey for C4ManagerContainer {
     type Value = Arc<RwLock<C4Manager>>;
-}
-
-#[async_trait]
-pub trait C4ManagerTrait {
-    fn new_game(&mut self, http_: &Arc<Http>, msg: Message);
-    async fn reacted(&mut self, msg: MessageId, pos: usize, user: UserId);
-}
-
-#[async_trait]
-impl C4ManagerTrait for C4Manager {
-    fn new_game(&mut self, http: &Arc<Http>, msg: Message) {
-        self.insert(msg.id, C4Instance::new(msg, Arc::clone(&http)));
-    }
-    async fn reacted(&mut self, msg_id: MessageId, pos: usize, user: UserId) {
-        if let Some(gem) = self.get_mut(&msg_id) {
-            if !gem.blocking {
-                unsafe {
-                    gem.move_coin(pos, user).await;
-                }
-            }
-        }
-    }
 }
 
 pub struct C4Instance {
@@ -51,7 +28,6 @@ pub struct C4Instance {
     players_pair: [User; 2],
     avatars: [ImageSurfaceWrapper; 2],
     turns: u8,
-    blocking: bool, // Block incoming input to prevent choking operations
 }
 
 impl C4Instance {
@@ -67,16 +43,14 @@ impl C4Instance {
                 ImageSurfaceWrapper::default(),
             ],
             turns: 1,
-            blocking: false,
         }
     }
 
     // Checks validity of player based on turns
     pub async unsafe fn move_coin(&mut self, pos: usize, user: UserId) {
         if self.turns > 2
-        /*&& ((user == self.two_players.0 || user == self.two_players.1)
-        && ((self.turns % 2 == 0 && self.two_players.1 == user)
-            || (self.turns % 2 == 1 && self.two_players.0 == user))) */
+            && ((self.turns % 2 == 0 && self.players_pair[1].id == user)
+                || (self.turns % 2 == 1 && self.players_pair[0].id == user))
         {
             if self.turns == 42 {
                 let _ = self.msg.delete_reactions(&self.http).await;
@@ -98,14 +72,11 @@ impl C4Instance {
     // Checks validity of move
     async fn coin_drop(&mut self, pos: usize) {
         if let Some([col, row]) = self.board_data.coin(self.coin_turn(), pos - 1) {
-            self.blocking = true;
             self.turns += 1;
 
             let msg_send = self.update_canvas([col, row]).await;
             let file = tokio::fs::File::open(&msg_send).await.unwrap();
             self.send_msg(&file).await;
-
-            self.blocking = false;
         }
     }
     // Determine which player it should be based on turns
@@ -117,30 +88,31 @@ impl C4Instance {
     }
 
     async fn update_canvas(&mut self, pos: [usize; 2]) -> String {
-        const COLUMN: [f64; 7] = [39., 104., 169., 234., 300., 365., 430.];
         const ROW: [f64; 6] = [32., 95., 157., 219., 282., 345.];
+        const COLUMN: [f64; 7] = [39., 104., 169., 234., 300., 365., 430.];
 
-        let board = self.board_canvas.0.clone();
-        let ctx = cairo::Context::new(&board);
+        let ctx = cairo::Context::new(&self.board_canvas.0);
 
         ctx.new_path();
         ctx.arc(COLUMN[pos[0]], ROW[pos[1]], 31.75, 0.0, PI * 2.0);
         ctx.close_path();
         ctx.clip();
 
-        let avatar = self.avatars[(self.turns % 2) as usize].clone();
-        ctx.set_source_surface(&avatar.0, COLUMN[pos[0]] - 32., ROW[pos[1]] - 32.);
+        ctx.set_source_surface(
+            &self.avatars[(self.turns % 2) as usize].0,
+            COLUMN[pos[0]] - 32.,
+            ROW[pos[1]] - 32.,
+        );
 
         ctx.paint();
 
         let msg_id = format!("{}.png", self.msg.id.0);
         let mut file = std::fs::File::create(&msg_id).expect("Couldn't create file.");
 
-        board
+        self.board_canvas
+            .0
             .write_to_png(&mut file)
             .expect("Couldn’t write to png");
-
-        self.board_canvas = ImageSurfaceWrapper(board);
 
         msg_id
     }
@@ -175,24 +147,27 @@ impl C4Instance {
     }
 
     pub async fn update_game(&mut self, img_link: String) {
-        let turn: String;
+        let turn_holder: String;
+        let turn: &u8 = &self.turns;
+
         if self.turns > 2 {
-            if self.turns % 2 == 0 {
-                turn = format!("{}'s turn!", self.players_pair[1].name);
-            } else {
-                turn = format!("{}'s turn!", self.players_pair[0].name);
-            }
+            turn_holder = format!(
+                "{}'s turn!",
+                self.players_pair[(self.turns % 2) as usize].name
+            );
         } else {
-            turn = "New Player's Turn!".to_string();
+            turn_holder = "New Player's Turn!".to_string();
         }
         let _ = self
             .msg
             .edit(&self.http, |m| {
                 m.embed(|e| {
                     e.title("Connect Four™")
-                        .field(turn, "React to position your coin", false)
+                        .field(turn_holder, "React for the coin-drop", true)
+                        .field("Turn", turn, true)
                         .url(&img_link)
                         .image(img_link)
+                        .footer(|f| f.text("| Report bugs | Version 0.1 |"))
                 })
             })
             .await;
@@ -201,7 +176,7 @@ impl C4Instance {
 
 trait BoardPlayable {
     fn new() -> Self;
-    fn coin(&mut self, new_coin: CellState, pos: usize) -> Option<[usize; 2]>;
+    fn coin(&mut self, coin: CellState, col: usize) -> Option<[usize; 2]>;
     fn dump(&self) -> String;
 }
 
@@ -211,11 +186,11 @@ impl BoardPlayable for Board7By6 {
     fn new() -> Self {
         [[CellState::Vacant; 7]; 6]
     }
-    fn coin(&mut self, new_coin: CellState, pos: usize) -> Option<[usize; 2]> {
-        for i in (0..6).rev() {
-            if self[i][pos] == CellState::Vacant {
-                self[i][pos] = new_coin;
-                return Some([pos, i]);
+    fn coin(&mut self, coin: CellState, col: usize) -> Option<[usize; 2]> {
+        for row in (0..6).rev() {
+            if self[row][col] == CellState::Vacant {
+                self[row][col] = coin;
+                return Some([col, row]);
             }
         }
         None

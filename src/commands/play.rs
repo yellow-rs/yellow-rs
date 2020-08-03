@@ -1,9 +1,9 @@
+use crate::core::game::c4::*;
 use serenity::framework::standard::{macros::command, CommandResult};
 use serenity::model::channel::ReactionType;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
-
-use crate::core::game::c4::*;
+use std::sync::Arc;
 
 #[command]
 #[aliases("c4")]
@@ -18,19 +18,27 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
 
     add_react(ctx, &gem).await;
 
-    let _ = gem.edit(&ctx.http, |m| m.embed(|e| e
-            .title("Connect Four™")
-            .field("New Player's turn!", "React to position your coin", false)
-            .image("https://cdn.discordapp.com/attachments/605343680047480864/739051304256536576/board7x6.png")
-            .url("https://cdn.discordapp.com/attachments/605343680047480864/739051304256536576/board7x6.png")
-            .footer(|f| f.text("| Report bugs | Version 1"))
-    ).content("​")).await;
+    let _ = gem
+        .edit(&ctx.http, |m| {
+            m.embed(|e| {
+                e.title("Connect Four™")
+                    .field("New Player's turn!", "React for the drop", true)
+                    .field("Turn", "1", true)
+                    .image("https://imgur.com/R0THwNS.png")
+                    .url("https://imgur.com/R0THwNS.png")
+                    .footer(|f| f.text("| Report bugs | Version 0.1.0 |"))
+            })
+            .content("​")
+        })
+        .await;
 
     let data = ctx.data.read().await;
-    let container = data.get::<C4ManagerContainer>().unwrap();
-    let mut c4manager = container.write().await;
+    let c4_container = data.get::<C4ManagerContainer>().unwrap();
 
-    c4manager.new_game(&ctx.http, gem);
+    c4_container.write().await.insert(
+        gem.id,
+        Arc::new(RwLock::new(C4Instance::new(gem, Arc::clone(&ctx.http)))),
+    );
 
     Ok(())
 }
