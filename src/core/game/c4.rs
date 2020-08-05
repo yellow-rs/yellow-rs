@@ -1,6 +1,7 @@
 use cairo::{Format, ImageSurface};
 
 use serenity::{
+    builder::CreateEmbed,
     http::{client::Http, AttachmentType},
     model::{
         channel::Message,
@@ -28,6 +29,7 @@ pub struct C4Instance {
     players_pair: [User; 2],
     avatars: [ImageSurfaceWrapper; 2],
     turns: u8,
+    over: bool,
 }
 
 impl C4Instance {
@@ -43,40 +45,38 @@ impl C4Instance {
                 ImageSurfaceWrapper::default(),
             ],
             turns: 1,
+            over: false,
         }
     }
 
     // Checks validity of player based on turns
     pub async unsafe fn move_coin(&mut self, pos: usize, user: UserId) {
-        if self.turns > 2
+        if !self.over
+            && self.turns > 2
             && ((self.turns % 2 == 0 && self.players_pair[1].id == user)
                 || (self.turns % 2 == 1 && self.players_pair[0].id == user))
         {
-            if self.turns == 42 {
-                let _ = self.msg.delete_reactions(&self.http).await;
-            }
             self.coin_drop(pos).await;
         } else if self.turns == 1 {
             // Get User
             self.players_pair[0] = self.http.get_user(user.0).await.unwrap();
             self.avatars[0] = self.grab_user_avatar(0).await;
             self.coin_drop(pos).await;
-        } else
-            /* if !(self.two_players.0 == user)*/
-            {
-                self.players_pair[1] = self.http.get_user(user.0).await.unwrap();
-                self.avatars[1] = self.grab_user_avatar(1).await;
-                self.coin_drop(pos).await;
-            }
+        } else if self.turns == 2 && !(self.players_pair[0].id == user) {
+            self.players_pair[1] = self.http.get_user(user.0).await.unwrap();
+            self.avatars[1] = self.grab_user_avatar(1).await;
+            self.coin_drop(pos).await;
+        }
     }
     // Checks validity of move
     async fn coin_drop(&mut self, pos: usize) {
-        if let Some([col, row]) = self.board_data.coin(self.coin_turn(), pos - 1) {
+        if let Ok([col, row]) = self.board_data.coin(self.coin_turn(), pos - 1) {
             self.turns += 1;
 
             let msg_send = self.update_canvas([col, row]).await;
             let file = tokio::fs::File::open(&msg_send).await.unwrap();
             self.send_msg(&file).await;
+            self.over = self.board_data.check(self.coin_turn().flip(), [row, col]);
         }
     }
     // Determine which player it should be based on turns
@@ -125,7 +125,7 @@ impl C4Instance {
                     filename: "any.png".to_string(),
                 })
             })
-        .await;
+            .await;
         tokio::fs::remove_file(format!("{}.png", self.msg.id.0))
             .await
             .unwrap();
@@ -133,13 +133,7 @@ impl C4Instance {
 
     async fn grab_user_avatar(&mut self, player: usize) -> ImageSurfaceWrapper {
         let face = &self.players_pair[player].face();
-        let avatar_url = format!(
-            "{}.png?size=64",
-            face
-            .rsplitn(2, ".")
-            .nth(1)
-            .unwrap()
-        );
+        let avatar_url = format!("{}.png?size=64", face.rsplitn(2, ".").nth(1).unwrap());
 
         let res = reqwest::get(&avatar_url)
             .await
@@ -153,13 +147,30 @@ impl C4Instance {
 
     pub async fn update_game(&mut self, img_link: String) {
         let turn_holder: String;
-        let turn: &u8 = &self.turns;
+        let turn = self.turns;
+        let mut turn_subtitle = "".to_string();
+        let mut winner = "".to_string();
 
         if self.turns > 2 {
-            turn_holder = format!(
-                "{}'s turn!",
-                self.players_pair[(self.turns % 2) as usize].name
-            );
+            if !self.over {
+                turn_holder = format!(
+                    "{}'s turn!",
+                    self.players_pair[((self.turns - 1) % 2) as usize].name
+                );
+                turn_subtitle = format!("Turn {}", turn);
+            } else if self.turns == 43 {
+                turn_holder = "Match is a draw!💣".to_string();
+                turn_subtitle = "Maximum of 42 turns".to_string();
+                let _ = self.msg.delete_reactions(&self.http).await;
+            } else {
+                turn_holder = format!(
+                    "{} won! ",
+                    self.players_pair[(self.turns % 2) as usize].name
+                );
+                turn_subtitle = format!("completed in {} turns", turn - 1);
+                winner = self.players_pair[(self.turns % 2) as usize].face();
+                let _ = self.msg.delete_reactions(&self.http).await;
+            }
         } else {
             turn_holder = "New Player's Turn!".to_string();
         }
@@ -168,20 +179,30 @@ impl C4Instance {
             .edit(&self.http, |m| {
                 m.embed(|e| {
                     e.title("Connect Four™")
-                        .field(turn_holder, "React for the coin-drop", true)
-                        .field("Turn", turn, true)
-                        .url(&img_link)
-                        .image(img_link)
-                        .footer(|f| f.text("| Report bugs | Version 0.1 |"))
+                        .field(turn_holder, turn_subtitle, false)
+                        .image(&img_link)
+                        .url(img_link)
+                        .footer(|f| {
+                            f.text("| Don't report bugs | Version 0.1.1 | React to place coin |")
+                        });
+                    if !winner.is_empty() {
+                        add_thumbnail(e, &winner)
+                    }
+                    e
                 })
             })
-        .await;
-        }
+            .await;
+    }
+}
+
+fn add_thumbnail(embed: &mut CreateEmbed, link: &str) {
+    embed.thumbnail(link);
 }
 
 trait BoardPlayable {
     fn new() -> Self;
-    fn coin(&mut self, coin: CellState, col: usize) -> Option<[usize; 2]>;
+    fn coin(&mut self, coin: CellState, col: usize) -> Result<[usize; 2], ()>;
+    fn check(&self, coin: CellState, pos: [usize; 2]) -> bool;
     fn dump(&self) -> String;
 }
 
@@ -191,14 +212,114 @@ impl BoardPlayable for Board7By6 {
     fn new() -> Self {
         [[CellState::Vacant; 7]; 6]
     }
-    fn coin(&mut self, coin: CellState, col: usize) -> Option<[usize; 2]> {
+    fn coin(&mut self, coin: CellState, col: usize) -> Result<[usize; 2], ()> {
         for row in (0..6).rev() {
             if self[row][col] == CellState::Vacant {
                 self[row][col] = coin;
-                return Some([col, row]);
+                return Ok([col, row]);
             }
         }
-        None
+        Err(())
+    }
+    fn check(&self, coin: CellState, pos: [usize; 2]) -> bool {
+        let mut acc = 0u8;
+        // Vertical check
+        for row in self.iter() {
+            if row[pos[1]] == coin {
+                acc += 1;
+                if acc == 4 {
+                    return true;
+                }
+            } else {
+                acc = 0;
+            }
+        }
+
+        // Horizontal check
+        acc = 0;
+        for cell in self[pos[0]].iter() {
+            if cell == &coin {
+                acc += 1;
+                if acc == 4 {
+                    return true;
+                }
+            } else {
+                acc = 0
+            }
+        }
+
+        acc = 1;
+        let coefficient = pos[0] as i8 - pos[1] as i8;
+        if coefficient < 3 && coefficient > -4 {
+            let mut j = pos[1];
+
+            for i in (0..pos[0]).rev() {
+                if j != 0 {
+                    j -= 1;
+                    if self[i][j] == coin {
+                        acc += 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            for i in (pos[0] + 1)..6 {
+                if j != 6 {
+                    j += 1;
+                    if self[i][j] == coin {
+                        acc += 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            if acc >= 4 {
+                return true;
+            }
+        }
+
+        acc = 1;
+        let coefficient = pos[0] + pos[1];
+        if coefficient > 2 && coefficient < 9 {
+            let mut j = pos[1];
+            for i in (0..pos[0]).rev() {
+                if j != 6 {
+                    j += 1;
+                    if self[i][j] == coin {
+                        acc += 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            j = pos[1];
+            for i in (pos[0] + 1)..6 {
+                if j != 0 {
+                    j -= 1;
+                    if self[i][j] == coin {
+                        acc += 1;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            if acc >= 4 {
+                return true;
+            }
+        }
+
+        false
     }
     fn dump(&self) -> String {
         let mut result = String::new();
@@ -217,6 +338,16 @@ pub enum CellState {
     Vacant,
     One,
     Two,
+}
+
+impl CellState {
+    fn flip(self) -> CellState {
+        match self {
+            CellState::One => CellState::Two,
+            CellState::Two => CellState::One,
+            CellState::Vacant => self,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

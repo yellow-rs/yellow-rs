@@ -22,11 +22,12 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
         .edit(&ctx.http, |m| {
             m.embed(|e| {
                 e.title("Connect Four™")
-                    .field("New Player's turn!", "React for the drop", true)
-                    .field("Turn", "1", true)
+                    .field("New Player's turn!", "Turn 1", false)
                     .image("https://imgur.com/R0THwNS.png")
                     .url("https://imgur.com/R0THwNS.png")
-                    .footer(|f| f.text("| Report bugs | Version 0.1.0 |"))
+                    .footer(|f| {
+                        f.text("| Don't Report bugs | Version 0.1.1 | React to place coin |")
+                    })
             })
             .content("​")
         })
