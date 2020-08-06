@@ -5,7 +5,6 @@ use serenity::framework::standard::{
     macros::{command, help},
     Args, CommandGroup, CommandResult, HelpOptions,
 };
-use serenity::http::client::Http;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 

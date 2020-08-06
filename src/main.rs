@@ -102,6 +102,8 @@ async fn main() {
             }
         };
 
+        //db_wrapper.update_score(566398769386749973, 551760879289368610, crate::core::game::GameResult::Loose).await;
+
         data.insert::<DatabaseWrapper>(db_wrapper);
     }
 
