@@ -8,7 +8,7 @@ pub struct DatabaseWrapper {
 }
 
 #[derive(FromSql)]
-struct Ranking {
+struct ranking {
     rank: i32,
     ranking_time: chrono::naive::NaiveDateTime,
 }
@@ -32,16 +32,16 @@ BEGIN
     END IF;
 END$$;"#, &[]).await?;
 
-    // Create leaderboard table if it doesn't exit
-    // the leaderboard table stores the user's score at every timeframe so we can graph it
-    self.client.execute(r#"CREATE TABLE IF NOT EXISTS "leaderboard"(
+// Create leaderboard table if it doesn't exit
+// the leaderboard table stores the user's score at every timeframe so we can graph it
+self.client.execute(r#"CREATE TABLE IF NOT EXISTS "leaderboard"(
     id bigint PRIMARY KEY NOT NULL,
     rankings ranking[]
 );"#, &[]).await?;
 Ok(())
     }
 
-    async fn get_rank(&self, id: i64) -> Ranking {
+    async fn get_rank(&self, id: i64) -> Vec<ranking> {
         // If the user doesn't have a score, insert 800 as starting point
         self.client.execute(r#"INSERT INTO leaderboard ("id", "rankings") VALUES ($1::BIGINT, '{"(800, NOW)"}') ON CONFLICT DO NOTHING;"#, &[&id]).await.expect("Failed to insert value into leaderboard");
 
@@ -50,8 +50,8 @@ Ok(())
     }
 
     pub async fn update_score(&self, a_id: i64, b_id: i64, result: GameResult) {
-        let a_rank = self.get_rank(a_id).await.rank;
-        let b_rank = self.get_rank(b_id).await.rank;
+        let a_rank = self.get_rank(a_id).await.last().unwrap().rank;
+        let b_rank = self.get_rank(b_id).await.last().unwrap().rank;
 
         //
         //                                     1
