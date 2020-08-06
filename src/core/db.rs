@@ -7,6 +7,7 @@ pub struct DatabaseWrapper {
     client: Client
 }
 
+#[allow(non_camel_case_types)] // It has to be lowercase for the derive macro :(
 #[derive(FromSql)]
 struct ranking {
     rank: i32,
@@ -49,7 +50,7 @@ Ok(())
         self.client.query_one("SELECT leaderboard.rankings FROM leaderboard WHERE id = $1::BIGINT", &[&id]).await.expect("Failed to get ranking from leaderboard").get("rankings")
     }
 
-    pub async fn update_score(&self, a_id: i64, b_id: i64, result: GameResult) {
+    pub async fn update_score(&self, a_id: i64, b_id: i64, result: GameResult) -> (i32, i32, i32, i32) {
         let a_rank = self.get_rank(a_id).await.last().unwrap().rank;
         let b_rank = self.get_rank(b_id).await.last().unwrap().rank;
 
@@ -59,10 +60,10 @@ Ok(())
         //                    1 + 10 ^ ((<B rank> - <A rank>)/400)
 
         // P(A wins)
-        let p_a_wins = 1.0 / (1.0 + 10.0f32.powf((b_rank as f32 + a_rank as f32)/400.0));
+        let p_a_wins = 1.0 / (1.0 + 10.0f32.powf((b_rank as f32 - a_rank as f32)/400.0));
 
         // P(B wins)
-        let p_b_wins = 1.0 / (1.0 + 10.0f32.powf((b_rank as f32 + a_rank as f32)/400.0));
+        let p_b_wins = 1.0 / (1.0 + 10.0f32.powf((a_rank as f32 - b_rank as f32)/400.0));
 
         // Real result
         let (a_result, b_result) = result.get_rep();
@@ -70,12 +71,17 @@ Ok(())
         // New <Player> ranking = <Player ranking> + 32(<Outcome> - <Expected Outcome>)
 
         // New A rating
-        let new_a_ranking = a_rank + (32.0 * (a_result - p_a_wins)) as i32;
+        let diff_a = (32.0 * (a_result - p_a_wins)) as i32;
+        let new_a_ranking = a_rank + diff_a;
         // New B rating
-        let new_b_ranking = b_rank + (32.0 * (b_result - p_b_wins)) as i32;
+        let diff_b = (32.0 * (b_result - p_b_wins)) as i32;
+        let new_b_ranking = b_rank + diff_b;
 
         println!("a rank: {}, b rank: {}", new_a_ranking, new_b_ranking);
-        // TODO: insert the new values
+
+        self.client.execute("UPDATE leaderboard SET rankings = rankings || ($1::INTEGER, NOW())::ranking  WHERE id = $2::BIGINT;", &[&new_a_ranking, &a_id]).await.unwrap();
+        self.client.execute("UPDATE leaderboard SET rankings = rankings || ($1::INTEGER, NOW())::ranking  WHERE id = $2::BIGINT;", &[&new_b_ranking, &b_id]).await.unwrap();
+        (diff_a, new_a_ranking, diff_b, new_b_ranking)
     }
 }
 

@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum GameResult {
     // Player A beats player B
     Win,

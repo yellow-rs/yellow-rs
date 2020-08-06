@@ -1,4 +1,4 @@
-use crate::core::game::c4::C4ManagerContainer;
+use crate::core::{game::c4::C4ManagerContainer, db::DatabaseWrapper};
 use log::info;
 use serenity::{
     async_trait,
@@ -21,12 +21,52 @@ impl ClientHandler {
             let container_op = data.get::<C4ManagerContainer>()?;
             let read = container_op.read().await;
 
-            if let Some(gem) = read.get(&MessageId(new_message.content.parse::<u64>().unwrap())) {
-                gem.write()
-                    .await
-                    .update_game(new_message.attachments[0].url.clone())
-                    .await;
-            }
+            let msg_id = MessageId(new_message.content.parse::<u64>().unwrap());
+            let gem = read.get(&msg_id)?;
+            if let Some((player_a, player_b, result)) = gem.write()
+                .await
+                    .update_game(&new_message.attachments[0].url)
+                    .await {
+                        // Game has ended here
+                        let db = data.get::<DatabaseWrapper>()?;
+                        let (a_change, a_final, b_change, b_final) = db.update_score(player_a.0 as i64, player_b.0 as i64, result).await;
+
+                        fn change_word(amount: i32) -> &'static str {
+                            if amount < 0 {
+                                "decreased"
+                            } else {
+                                "increased"
+                            }
+                        }
+
+                        gem.write().await.send_embed(|e|
+                            e.title(
+                                format!(
+                                    "Result's from {} and {}'s game",
+                                    player_a.mention(),
+                                    player_b.mention()
+                                )
+                            ).field(
+                            player_a.mention(),
+                            format!(
+                                "Score {} by `{}`. Now at a total of `{}`.",
+                                change_word(a_change),
+                                a_change.abs(),
+                                a_final
+                            ),
+                            false
+                            )
+                            .field(
+                                player_b.mention(),
+                                format!(
+                                    "Score {} by `{}`. Now at a total of `{}`.",
+                                    change_word(b_change),
+                                    b_change.abs(),
+                                    b_final
+                                ),
+                                false)
+                            ).await;
+                    };
         }
         None
     }
@@ -36,8 +76,8 @@ impl ClientHandler {
 
         if container_op
             .read()
-            .await
-            .contains_key(&add_reaction.message_id)
+                .await
+                .contains_key(&add_reaction.message_id)
         {
             let msg = add_reaction.message(&ctx.http).await.unwrap();
             if let ReactionType::Custom {
@@ -55,9 +95,9 @@ impl ClientHandler {
                         unsafe {
                             gem.write()
                                 .await
-                                .move_coin(value, add_reaction.user_id)
+                                .move_coin(value, add_reaction.user_id.unwrap())
                                 .await;
-                        }
+                            }
                         let _ = add_reaction.delete(&ctx.http).await;
                     }
                 }
@@ -79,6 +119,7 @@ impl EventHandler for ClientHandler {
     async fn reaction_add(&self, ctx: Context, add_reaction: Reaction) {
         let _ = self.reaction_add_internal(ctx, add_reaction).await;
     }
+
     async fn message(&self, ctx: Context, new_message: Message) {
         let _ = self.message_add_internal(ctx, new_message).await;
     }

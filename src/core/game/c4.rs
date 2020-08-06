@@ -11,6 +11,7 @@ use serenity::{
     prelude::{RwLock, TypeMapKey},
 };
 use std::{collections::HashMap, f64::consts::PI, sync::Arc};
+use crate::core::game::GameResult;
 
 use bytes::buf::BufExt;
 
@@ -49,12 +50,19 @@ impl C4Instance {
         }
     }
 
+    pub async fn send_embed<F>(&mut self, embed: F)
+    where
+        F: FnOnce(&mut CreateEmbed) -> &mut CreateEmbed
+    {
+        let _ = self.msg.channel_id.send_message(&self.http, |m| m.embed(embed)).await;
+    }
+
     // Checks validity of player based on turns
     pub async unsafe fn move_coin(&mut self, pos: usize, user: UserId) {
         if !self.over
             && self.turns > 2
-            && ((self.turns % 2 == 0 && self.players_pair[1].id == user)
-                || (self.turns % 2 == 1 && self.players_pair[0].id == user))
+                && ((self.turns % 2 == 0 && self.players_pair[1].id == user)
+                    || (self.turns % 2 == 1 && self.players_pair[0].id == user))
         {
             self.coin_drop(pos).await;
         } else if self.turns == 1 {
@@ -125,7 +133,7 @@ impl C4Instance {
                     filename: "any.png".to_string(),
                 })
             })
-            .await;
+        .await;
         tokio::fs::remove_file(format!("{}.png", self.msg.id.0))
             .await
             .unwrap();
@@ -145,11 +153,12 @@ impl C4Instance {
         ImageSurfaceWrapper(ImageSurface::create_from_png(&mut res.reader()).unwrap())
     }
 
-    pub async fn update_game(&mut self, img_link: String) {
+    pub async fn update_game(&mut self, img_link: &str) -> Option<(UserId, UserId, GameResult)> {
         let turn_holder: String;
         let turn = self.turns;
         let mut turn_subtitle = "".to_string();
         let mut winner = "".to_string();
+        let mut result = None;
 
         if self.turns > 2 {
             if !self.over {
@@ -161,15 +170,19 @@ impl C4Instance {
             } else if self.turns == 43 {
                 turn_holder = "Match is a draw!💣".to_string();
                 turn_subtitle = "Maximum of 42 turns".to_string();
+
                 let _ = self.msg.delete_reactions(&self.http).await;
+                result = Some((self.players_pair[0].id, self.players_pair[1].id, GameResult::Tie));
             } else {
+                let winner_usr = &self.players_pair[(self.turns % 2) as usize];
                 turn_holder = format!(
                     "{} won! ",
-                    self.players_pair[(self.turns % 2) as usize].name
+                    winner_usr.name
                 );
                 turn_subtitle = format!("completed in {} turns", turn - 1);
-                winner = self.players_pair[(self.turns % 2) as usize].face();
+                winner = winner_usr.face();
                 let _ = self.msg.delete_reactions(&self.http).await;
+                result = Some((winner_usr.id, self.players_pair[(self.turns-1 % 2) as usize].id, GameResult::Win));
             }
         } else {
             turn_holder = "New Player's Turn!".to_string();
@@ -180,7 +193,7 @@ impl C4Instance {
                 m.embed(|e| {
                     e.title("Connect Four™")
                         .field(turn_holder, turn_subtitle, false)
-                        .image(&img_link)
+                        .image(img_link)
                         .url(img_link)
                         .footer(|f| {
                             f.text("| Don't report bugs | Version 0.1.1 | React to place coin |")
@@ -191,7 +204,9 @@ impl C4Instance {
                     e
                 })
             })
-            .await;
+        .await;
+
+        result
     }
 }
 
