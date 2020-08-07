@@ -54,7 +54,7 @@ impl C4Instance {
     where
         F: FnOnce(&mut CreateEmbed) -> &mut CreateEmbed
     {
-        let _ = self.msg.channel_id.send_message(&self.http, |m| m.embed(embed)).await;
+        self.msg.channel_id.send_message(&self.http, |m| m.embed(embed)).await.expect("Failed to send message");
     }
 
     // Checks validity of player based on turns
@@ -153,10 +153,10 @@ impl C4Instance {
         ImageSurfaceWrapper(ImageSurface::create_from_png(&mut res.reader()).unwrap())
     }
 
-    pub async fn update_game(&mut self, img_link: &str) -> Option<(UserId, UserId, GameResult)> {
+    pub async fn update_game(&mut self, img_link: String) -> Option<(&User, &User, GameResult)> {
         let turn_holder: String;
         let turn = self.turns;
-        let mut turn_subtitle = "".to_string();
+        let mut turn_subtitle = "React to start!".to_string();
         let mut winner = "".to_string();
         let mut result = None;
 
@@ -171,8 +171,11 @@ impl C4Instance {
                 turn_holder = "Match is a draw!💣".to_string();
                 turn_subtitle = "Maximum of 42 turns".to_string();
 
+                // Delete reactions
                 let _ = self.msg.delete_reactions(&self.http).await;
-                result = Some((self.players_pair[0].id, self.players_pair[1].id, GameResult::Tie));
+
+                // Return result of game
+                result = Some((&self.players_pair[0], &self.players_pair[1], GameResult::Tie));
             } else {
                 let winner_usr = &self.players_pair[(self.turns % 2) as usize];
                 turn_holder = format!(
@@ -181,19 +184,24 @@ impl C4Instance {
                 );
                 turn_subtitle = format!("completed in {} turns", turn - 1);
                 winner = winner_usr.face();
+
+                // Delete reactions
                 let _ = self.msg.delete_reactions(&self.http).await;
-                result = Some((winner_usr.id, self.players_pair[(self.turns-1 % 2) as usize].id, GameResult::Win));
+
+                // Return result of game
+                result = Some((winner_usr, &self.players_pair[((self.turns-1) % 2) as usize], GameResult::Win));
             }
         } else {
             turn_holder = "New Player's Turn!".to_string();
         }
+
         let _ = self
             .msg
             .edit(&self.http, |m| {
                 m.embed(|e| {
                     e.title("Connect Four™")
-                        .field(turn_holder, turn_subtitle, false)
-                        .image(img_link)
+                        .field(turn_holder, turn_subtitle, true)
+                        .image(&img_link)
                         .url(img_link)
                         .footer(|f| {
                             f.text("| Don't report bugs | Version 0.1.1 | React to place coin |")

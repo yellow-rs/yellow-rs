@@ -77,8 +77,6 @@ Ok(())
         let diff_b = (32.0 * (b_result - p_b_wins)) as i32;
         let new_b_ranking = b_rank + diff_b;
 
-        println!("a rank: {}, b rank: {}", new_a_ranking, new_b_ranking);
-
         self.client.execute("UPDATE leaderboard SET rankings = rankings || ($1::INTEGER, NOW())::ranking  WHERE id = $2::BIGINT;", &[&new_a_ranking, &a_id]).await.unwrap();
         self.client.execute("UPDATE leaderboard SET rankings = rankings || ($1::INTEGER, NOW())::ranking  WHERE id = $2::BIGINT;", &[&new_b_ranking, &b_id]).await.unwrap();
         (diff_a, new_a_ranking, diff_b, new_b_ranking)

@@ -22,7 +22,7 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
         .edit(&ctx.http, |m| {
             m.embed(|e| {
                 e.title("Connect Four™")
-                    .field("New Player's turn!", "Turn 1", false)
+                    .field("New Player's turn!", "React to start!", false)
                     .image("https://imgur.com/R0THwNS.png")
                     .url("https://imgur.com/R0THwNS.png")
                     .footer(|f| {

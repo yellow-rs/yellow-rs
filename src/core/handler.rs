@@ -9,6 +9,7 @@ use serenity::{
         gateway::Ready,
         id::{ChannelId, MessageId},
     },
+    utils::Color,
     prelude::*,
 };
 
@@ -22,50 +23,73 @@ impl ClientHandler {
             let read = container_op.read().await;
 
             let msg_id = MessageId(new_message.content.parse::<u64>().unwrap());
-            let gem = read.get(&msg_id)?;
-            if let Some((player_a, player_b, result)) = gem.write()
-                .await
-                    .update_game(&new_message.attachments[0].url)
+
+
+            // XXX: clean up this code; the use of locks makes it messy
+            // for the motivation of keeping critical sections short
+
+            // !! Start of critical section
+            let mut gem = read.get(&msg_id)?.write().await;
+            if let Some((player_a, player_b, result)) = gem
+                    .update_game(new_message.attachments[0].url.clone())
                     .await {
-                        // Game has ended here
+                        let player_a_mention = player_a.name.clone();
+                        let player_b_mention = player_b.name.clone();
+                        let player_a_id = player_a.id;
+                        let player_b_id = player_b.id;
+
+                        // !! End of critical section
+                        std::mem::drop(gem);
+
+                        // Game has ended here, modify db
                         let db = data.get::<DatabaseWrapper>()?;
-                        let (a_change, a_final, b_change, b_final) = db.update_score(player_a.0 as i64, player_b.0 as i64, result).await;
+                        let (a_change, a_final, b_change, b_final) = db.update_score(player_a_id.0 as i64, player_b_id.0 as i64, result).await;
 
                         fn change_word(amount: i32) -> &'static str {
                             if amount < 0 {
-                                "decreased"
+                                "**DECREASED**"
                             } else {
-                                "increased"
+                                "**INCREASED**"
                             }
                         }
 
-                        gem.write().await.send_embed(|e|
-                            e.title(
-                                format!(
-                                    "Result's from {} and {}'s game",
-                                    player_a.mention(),
-                                    player_b.mention()
-                                )
-                            ).field(
-                            player_a.mention(),
-                            format!(
-                                "Score {} by `{}`. Now at a total of `{}`.",
-                                change_word(a_change),
-                                a_change.abs(),
-                                a_final
-                            ),
-                            false
+                        let results_desc = format!(
+                            "Results from {} and {}'s game",
+                            player_a_id.mention(),
+                            player_b_id.mention()
+                        );
+
+                        let player_a_score = format!(
+                            "Score {} by `{}`, now at a total of `{}`.",
+                            change_word(a_change),
+                            a_change.abs(),
+                            a_final
+                        );
+
+                        let player_b_score = format!(
+                            "Score {} by `{}`, now at a total of `{}`.",
+                            change_word(b_change),
+                            b_change.abs(),
+                            b_final
+                        );
+
+                        // !! Start of critical section
+                        read.get(&msg_id)?.write().await.send_embed(|e|
+                            e.title("Results")
+                            .description(results_desc)
+                            .field(
+                                player_a_mention,
+                                player_a_score,
+                                false
                             )
                             .field(
-                                player_b.mention(),
-                                format!(
-                                    "Score {} by `{}`. Now at a total of `{}`.",
-                                    change_word(b_change),
-                                    b_change.abs(),
-                                    b_final
-                                ),
-                                false)
-                            ).await;
+                                player_b_mention,
+                                player_b_score,
+                                false
+                            )
+                            .color(Color::from_rgb(43, 82, 224))
+                        ).await;
+                        // !! End of critical section
                     };
         }
         None
