@@ -32,7 +32,7 @@ struct Tech;
 struct Util;
 
 #[group]
-#[commands(connect_four)]
+#[commands(connect_four, leaderboard)]
 struct Play;
 
 #[tokio::main]

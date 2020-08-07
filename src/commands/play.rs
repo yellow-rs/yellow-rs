@@ -1,9 +1,41 @@
-use crate::core::game::c4::*;
-use serenity::framework::standard::{macros::command, CommandResult};
-use serenity::model::channel::ReactionType;
-use serenity::model::prelude::*;
-use serenity::prelude::*;
+use crate::core::{db::{DatabaseWrapper, ranking}, game::c4::*};
+use serenity::{
+    framework::standard::{macros::command, CommandResult},
+    model::channel::ReactionType,
+    model::prelude::*,
+    prelude::*,
+    utils::Color
+};
 use std::sync::Arc;
+
+#[command]
+#[aliases("lb")]
+#[description("Show top 10 players.")]
+async fn leaderboard(ctx: &Context, msg: &Message) -> CommandResult {
+    let data = ctx.data.read().await;
+    let db_wrapper: &DatabaseWrapper = data.get::<DatabaseWrapper>().unwrap();
+    let top_10 = db_wrapper.get_top_n(10).await;
+    let top_10_string: String =
+        top_10.into_iter()
+        .map(|row| {
+            let id: i64 = row.get("id");
+            let scores: Vec<ranking> = row.get("rankings");
+            format!(
+                "<@{}> - **`{}`** points\n",
+                id,
+                scores.last().unwrap().rank
+            )
+        }).collect();
+
+    let _ = msg.channel_id.send_message(&ctx.http, |m| {
+        m.embed(|e| {
+            e.title("Top 10 players")
+                .field("Players", top_10_string, false)
+                .color(Color::from_rgb(33, 255, 92))
+        })
+    }).await;
+    Ok(())
+}
 
 #[command]
 #[aliases("c4")]
@@ -14,7 +46,7 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
         .send_message(&ctx.http, |m| {
             m.content("Initializing <a:loading:617628744512700447>")
         })
-        .await?;
+    .await?;
 
     add_react(ctx, &gem).await;
 
@@ -31,7 +63,7 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
             })
             .content("​")
         })
-        .await;
+    .await;
 
     let data = ctx.data.read().await;
     let c4_container = data.get::<C4ManagerContainer>().unwrap();
@@ -49,22 +81,22 @@ async fn connect_four(ctx: &Context, msg: &Message) -> CommandResult {
 #[aliases("g")]
 #[description("Retrieves numbers of persisting games in cache.")]
 async fn games(ctx: &Context, msg: &Message) -> CommandResult {
-    let data = ctx.data.read().await;
+let data = ctx.data.read().await;
 
-    let c4 = data.get::<ConnectFourContainer>().unwrap().read().await;
+let c4 = data.get::<ConnectFourContainer>().unwrap().read().await;
 
-    let _ = msg
-        .channel_id
-        .send_message(&ctx.http, |m| {
-            m.embed(|e| {
-                e.title("Games persisting")
-                    .field("Connect 4", c4.games.len(), true)
-                    .field("Go 囲碁", "#", true)
-            })
-        })
-        .await;
+let _ = msg
+.channel_id
+.send_message(&ctx.http, |m| {
+m.embed(|e| {
+e.title("Games persisting")
+.field("Connect 4", c4.games.len(), true)
+.field("Go 囲碁", "#", true)
+})
+})
+.await;
 
-    Ok(())
+Ok(())
 }
 */
 async fn add_react(ctx: &Context, msg: &Message) {

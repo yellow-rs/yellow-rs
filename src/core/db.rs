@@ -1,5 +1,7 @@
 use serenity::prelude::TypeMapKey;
-use tokio_postgres::{Client, error::Error, types::FromSql};
+use tokio_postgres::{
+    Client, error::Error, types::FromSql, row::Row
+};
 
 use crate::core::game::GameResult;
 
@@ -9,9 +11,9 @@ pub struct DatabaseWrapper {
 
 #[allow(non_camel_case_types)] // It has to be lowercase for the derive macro :(
 #[derive(FromSql)]
-struct ranking {
-    rank: i32,
-    ranking_time: chrono::naive::NaiveDateTime,
+pub struct ranking {
+    pub rank: i32,
+    pub ranking_time: chrono::naive::NaiveDateTime,
 }
 
 impl DatabaseWrapper {
@@ -42,7 +44,7 @@ self.client.execute(r#"CREATE TABLE IF NOT EXISTS "leaderboard"(
 Ok(())
     }
 
-    async fn get_rank(&self, id: i64) -> Vec<ranking> {
+    pub async fn get_rank(&self, id: i64) -> Vec<ranking> {
         // If the user doesn't have a score, insert 800 as starting point
         self.client.execute(r#"INSERT INTO leaderboard ("id", "rankings") VALUES ($1::BIGINT, '{"(800, NOW)"}') ON CONFLICT DO NOTHING;"#, &[&id]).await.expect("Failed to insert value into leaderboard");
 
@@ -80,6 +82,13 @@ Ok(())
         self.client.execute("UPDATE leaderboard SET rankings = rankings || ($1::INTEGER, NOW())::ranking  WHERE id = $2::BIGINT;", &[&new_a_ranking, &a_id]).await.unwrap();
         self.client.execute("UPDATE leaderboard SET rankings = rankings || ($1::INTEGER, NOW())::ranking  WHERE id = $2::BIGINT;", &[&new_b_ranking, &b_id]).await.unwrap();
         (diff_a, new_a_ranking, diff_b, new_b_ranking)
+    }
+
+    pub async fn get_top_n(&self, n: i64) -> Vec<Row> {
+        self.client.query(r#"SELECT *, rank() OVER (ORDER BY leaderboard.rankings DESC) rank
+FROM leaderboard
+ORDER BY leaderboard.rankings[array_upper(leaderboard.rankings, 1)] DESC
+LIMIT $1::BIGINT;"#, &[&n]).await.unwrap()
     }
 }
 
