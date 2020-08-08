@@ -153,7 +153,7 @@ impl C4Instance {
         ImageSurfaceWrapper(ImageSurface::create_from_png(&mut res.reader()).unwrap())
     }
 
-    pub async fn update_game(&mut self, img_link: String) -> Option<(&User, &User, GameResult)> {
+    pub async fn update_game(&mut self, img_link: &str) -> Option<(&User, &User, GameResult)> {
         let turn_holder: String;
         let turn = self.turns;
         let mut turn_subtitle = "React to start!".to_string();
@@ -201,7 +201,7 @@ impl C4Instance {
                 m.embed(|e| {
                     e.title("Connect Four™")
                         .field(turn_holder, turn_subtitle, true)
-                        .image(&img_link)
+                        .image(img_link)
                         .url(img_link)
                         .footer(|f| {
                             f.text("| Don't report bugs | Version 0.1.1 | React to place coin |")

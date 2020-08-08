@@ -31,7 +31,7 @@ impl ClientHandler {
             // !! Start of critical section
             let mut gem = read.get(&msg_id)?.write().await;
             if let Some((player_a, player_b, result)) = gem
-                    .update_game(new_message.attachments[0].url.clone())
+                    .update_game(&new_message.attachments[0].url)
                     .await {
                         let player_a_mention = player_a.name.clone();
                         let player_b_mention = player_b.name.clone();
