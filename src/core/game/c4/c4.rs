@@ -1,5 +1,6 @@
 use cairo::{Format, ImageSurface};
 
+use crate::core::game::GameResult;
 use serenity::{
     builder::CreateEmbed,
     http::{client::Http, AttachmentType},
@@ -11,27 +12,8 @@ use serenity::{
     prelude::{RwLock, TypeMapKey},
 };
 use std::{collections::HashMap, f64::consts::PI, sync::Arc};
-use crate::core::game::GameResult;
 
 use bytes::buf::BufExt;
-
-pub type C4Manager = HashMap<MessageId, Arc<RwLock<C4Instance>>>;
-
-pub struct C4ManagerContainer;
-impl TypeMapKey for C4ManagerContainer {
-    type Value = Arc<RwLock<C4Manager>>;
-}
-
-pub struct C4Instance {
-    msg: Message,          // Message to manipulate
-    http: Arc<Http>,       // Http object to interact with message
-    board_data: Board7By6, // Board data wrapper
-    board_canvas: ImageSurfaceWrapper,
-    players_pair: [User; 2],
-    avatars: [ImageSurfaceWrapper; 2],
-    turns: u8,
-    over: bool,
-}
 
 impl C4Instance {
     pub fn new(msg: Message, http: Arc<Http>) -> Self {
@@ -52,17 +34,21 @@ impl C4Instance {
 
     pub async fn send_embed<F>(&mut self, embed: F)
     where
-        F: FnOnce(&mut CreateEmbed) -> &mut CreateEmbed
+        F: FnOnce(&mut CreateEmbed) -> &mut CreateEmbed,
     {
-        self.msg.channel_id.send_message(&self.http, |m| m.embed(embed)).await.expect("Failed to send message");
+        self.msg
+            .channel_id
+            .send_message(&self.http, |m| m.embed(embed))
+            .await
+            .expect("Failed to send message");
     }
 
     // Checks validity of player based on turns
     pub async unsafe fn move_coin(&mut self, pos: usize, user: UserId) {
         if !self.over
             && self.turns > 2
-                && ((self.turns % 2 == 0 && self.players_pair[1].id == user)
-                    || (self.turns % 2 == 1 && self.players_pair[0].id == user))
+            && ((self.turns % 2 == 0 && self.players_pair[1].id == user)
+                || (self.turns % 2 == 1 && self.players_pair[0].id == user))
         {
             self.coin_drop(pos).await;
         } else if self.turns == 1 {
@@ -133,7 +119,7 @@ impl C4Instance {
                     filename: "any.png".to_string(),
                 })
             })
-        .await;
+            .await;
         tokio::fs::remove_file(format!("{}.png", self.msg.id.0))
             .await
             .unwrap();
@@ -175,13 +161,14 @@ impl C4Instance {
                 let _ = self.msg.delete_reactions(&self.http).await;
 
                 // Return result of game
-                result = Some((&self.players_pair[0], &self.players_pair[1], GameResult::Tie));
+                result = Some((
+                    &self.players_pair[0],
+                    &self.players_pair[1],
+                    GameResult::Tie,
+                ));
             } else {
                 let winner_usr = &self.players_pair[(self.turns % 2) as usize];
-                turn_holder = format!(
-                    "{} won! ",
-                    winner_usr.name
-                );
+                turn_holder = format!("{} won! ", winner_usr.name);
                 turn_subtitle = format!("completed in {} turns", turn - 1);
                 winner = winner_usr.face();
 
@@ -189,7 +176,11 @@ impl C4Instance {
                 let _ = self.msg.delete_reactions(&self.http).await;
 
                 // Return result of game
-                result = Some((winner_usr, &self.players_pair[((self.turns-1) % 2) as usize], GameResult::Win));
+                result = Some((
+                    winner_usr,
+                    &self.players_pair[((self.turns - 1) % 2) as usize],
+                    GameResult::Win,
+                ));
             }
         } else {
             turn_holder = "New Player's Turn!".to_string();
@@ -212,7 +203,7 @@ impl C4Instance {
                     e
                 })
             })
-        .await;
+            .await;
 
         result
     }
@@ -220,13 +211,6 @@ impl C4Instance {
 
 fn add_thumbnail(embed: &mut CreateEmbed, link: &str) {
     embed.thumbnail(link);
-}
-
-trait BoardPlayable {
-    fn new() -> Self;
-    fn coin(&mut self, coin: CellState, col: usize) -> Result<[usize; 2], ()>;
-    fn check(&self, coin: CellState, pos: [usize; 2]) -> bool;
-    fn dump(&self) -> String;
 }
 
 type Board7By6 = [[CellState; 7]; 6];
@@ -354,22 +338,6 @@ impl BoardPlayable for Board7By6 {
         }
         result.push('\n');
         result
-    }
-}
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CellState {
-    Vacant,
-    One,
-    Two,
-}
-
-impl CellState {
-    fn flip(self) -> CellState {
-        match self {
-            CellState::One => CellState::Two,
-            CellState::Two => CellState::One,
-            CellState::Vacant => self,
-        }
     }
 }
 
